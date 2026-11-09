@@ -55,7 +55,7 @@ N=<Project编号>; URL=<issue url>
 gh issue create -R <owner/repo> --title "<可交付单元>" --body-file <四段正文.md> --label <类型> --assignee @me
 gh issue close <issue号> -R <owner/repo> && gh project item-add ${N} --owner "@me" --url "${URL}"
 # ② 设 5 字段
-for fv in "类型:需求" "来源:甲方" "工时(h):8" "开始:YYYY-MM-DD" "结束:YYYY-MM-DD" "Status:已完成"; do
+for fv in "类型:需求" "来源:甲方" "需求人:张三" "工时(h):8" "开始:YYYY-MM-DD" "结束:YYYY-MM-DD" "Status:已完成"; do
   gh project item-edit ${N} --owner "@me" --url "${URL}" --field "${fv%%:*}" --value "${fv#*:}"; done
 ```
 

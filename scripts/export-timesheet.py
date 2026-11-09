@@ -43,7 +43,7 @@ query($cursor: String) {
 }
 """ 
 
-COLUMNS = ["需求名称", "类型", "来源", "状态", "工时(h)", "开始", "结束", "交付轮次", "链接"]
+COLUMNS = ["需求名称", "类型", "来源", "需求人", "状态", "工时(h)", "开始", "结束", "交付轮次", "链接"]
 
 
 def gh_graphql(query, cursor=None, retries=3):
@@ -118,7 +118,7 @@ def build_sheet(rows, project_title, subtitle):
     ws.append(["合计" if i == 1 else (total if i == hours_col else "") for i in range(1, len(COLUMNS) + 1)])
     ws.cell(row=ws.max_row, column=1).font = Font(bold=True)
     ws.cell(row=ws.max_row, column=hours_col).font = Font(bold=True)
-    widths = {"需求名称": 38, "类型": 8, "来源": 7, "状态": 9, "工时(h)": 9,
+    widths = {"需求名称": 38, "类型": 8, "来源": 7, "需求人": 10, "状态": 9, "工时(h)": 9,
               "开始": 12, "结束": 12, "交付轮次": 18, "链接": 44}
     for i, name in enumerate(COLUMNS, 1):
         ws.column_dimensions[get_column_letter(i)].width = widths.get(name, 12)

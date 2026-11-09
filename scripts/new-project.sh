@@ -95,6 +95,8 @@ FID_FEND=$(mkfield   "结束"     DATE          "")
 say "  字段ok 结束=${FID_FEND}"
 FID_FSOURCE=$(mkfield "来源"    SINGLE_SELECT "甲方,内部")
 say "  字段ok 来源=${FID_FSOURCE}"
+FID_FREQ=$(mkfield   "需求人"   TEXT          "")
+say "  字段ok 需求人=${FID_FREQ}"
 
 # ---------- 3. Status 选项中文化 ----------
 say "Status 选项中文化"
@@ -115,9 +117,9 @@ sleep "${PACE}"
 say "配置 View 1 可见列"
 VIEW_ID=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { views(first: 5) { nodes { id name } } } } }" \
           --jq '.data.node.views.nodes[0].id')
-VFIDS="\"${TITLE_ID}\", \"${STATUS_ID}\", \"${FID_FTYPE}\", \"${FID_FHOURS}\", \"${FID_FSTART}\", \"${FID_FEND}\", \"${FID_FSOURCE}\", \"${ASSIGNEE_ID}\""
+VFIDS="\"${TITLE_ID}\", \"${STATUS_ID}\", \"${FID_FTYPE}\", \"${FID_FHOURS}\", \"${FID_FSTART}\", \"${FID_FEND}\", \"${FID_FSOURCE}\", \"${FID_FREQ}\", \"${ASSIGNEE_ID}\""
 gql "mutation { updateProjectV2View(input: {viewId: \"${VIEW_ID}\", configuration: {visibleFieldIds: [${VFIDS}]}}) { projectV2View { name } } }" >/dev/null
-say "  View 1 已配 8 列"
+say "  View 1 已配 9 列"
 sleep "${PACE}"
 
 # ---------- 5. 仓库类型 labels ----------
