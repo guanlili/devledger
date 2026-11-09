@@ -7,6 +7,7 @@
   python3 reconcile.py --project N --repo guanlili/xxx --from-labels                            # 按「轮次:」label 重建轮次字段（坑6善后）
 
 数据文件 data/*.json：[{"title": "...", "fields": {"字段": "值", ...}}, ...]（各项目账本真值）。
+数字字段（如「工时(h)」）写 2 / 2.0 / "2" 均可：引擎读回后统一归一为字符串再比较。
 """
 import argparse
 import json
@@ -24,6 +25,27 @@ Q = """query($cursor: String) { viewer { projectV2(number: %d) { items(first: 10
       ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2FieldCommon { name } } }
     } } }
 } } } } """
+
+
+def norm(v):
+    """字段值归一：数字与数字字符串等价，其余按去空白字符串比较。
+
+    读回侧已把 Project 的数字字段归一为 str(int(x))（见 read_project），
+    所以真值文件里写 2 / 2.0 / "2" / "2.0" 都应判定为一致，避免全量误报 DRIFT。
+    """
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return str(v).lower()
+    if isinstance(v, (int, float)):
+        f = float(v)
+        return str(int(f)) if f.is_integer() else str(f)
+    s = str(v).strip()
+    try:
+        f = float(s)
+        return str(int(f)) if f.is_integer() else str(f)
+    except ValueError:
+        return s
 
 
 def run(args, retries=6):
@@ -129,7 +151,7 @@ def main():
         for e in expect:
             cur = items.get(e["title"])
             for f, v in e["fields"].items():
-                if cur is None or cur["vals"].get(f) != v:
+                if cur is None or norm(cur["vals"].get(f)) != norm(v):
                     todo.append((e["title"], cur["url"] if cur else None, f, v))
         print(f"[sweep{sweep}] project {len(items)} 条，需修正 {len(todo)} 处", flush=True)
         if not todo:
