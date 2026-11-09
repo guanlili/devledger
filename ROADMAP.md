@@ -25,6 +25,7 @@ Nothing to build — infrastructure is complete. The task is visibility: awesome
 | A second round-based customer | Revive delivery-rounds / acceptance mode (tools are dormant, not deleted) |
 | "What did we do this month?" | Captain's monthly report |
 | Official Agent Skills directories emerge | Submit immediately |
+| Big multi-module repo / multiple PMs | Ledger boundary follows delivery boundary, not repo: module labels → multi-Project per repo → org-level Projects (needs `--owner <org>` support). 1+N scales as a federation of fleets |
 | Captain dashboard questions (weekly digest, defect ratio, per-session stats) | Wake the aggregation views — the tech lead's dashboard is a paradigm core, not a nice-to-have |
 
 ## Never (anti-roadmap)
