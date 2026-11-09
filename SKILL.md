@@ -4,7 +4,7 @@ description: 轻量级 GitHub 项目管理 skill——把 AI 开发会话自动�
 license: MIT
 compatibility: 需 gh CLI（scopes 含 project, read:project）、git、bash 3.2+；导出需 python3 + openpyxl；macOS/Linux。
 metadata:
-  version: "1.1.0"
+  version: "1.2.0"
   author: guanlili
   homepage: https://github.com/guanlili/devledger
 ---
@@ -81,5 +81,9 @@ python3 scripts/export-timesheet.py --project <N> [--round 轮次] [--customer] 
 git clone git@github.com:guanlili/devledger.git ~/.agents/skills/devledger
 bash ~/.agents/skills/devledger/scripts/install.sh   # 幂等自检：就位/gh/权限/openpyxl
 ```
+
+**安装/更新/自检同一条命令**（幂等）：`bash ~/.agents/skills/devledger/scripts/install.sh`——未就位则 HTTPS 克隆；重跑即更新（ff pull + 版本显示 + gh 权限自检）。
+
+**小白演示**：`bash scripts/demo.sh`——2 分钟全自动「建沙盒仓库→接入→记 2 条账→导出验收表」，无需 AI 与真实仓库。
 
 他人接入一句话（对其 AI 说）：「克隆 guanlili/devledger 到 ~/.agents/skills/devledger，跑 install.sh，按 SKILL.md 给我的仓库 <owner/repo> 接入项目管理」。Project 建在执行者账号（@me）；克隆 403=需管理员加 devledger 仓库协作者。
