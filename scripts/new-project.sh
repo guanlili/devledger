@@ -35,9 +35,16 @@ gql() { # gql '<query>' [额外gh参数...] → stdout 透传 gh 输出；失败
 
 mkfield() { # $1=字段名 $2=类型 $3=选项(可空) → stdout 输出 field id；幂等+重试
   local id out attempt
-  id=$(gh project field-list "${PJ_NUM}" --owner "@me" --format json 2>/dev/null \
-       | jq -r --arg n "${1}" '.fields[]? | select(.name == $n) | .id' | head -1)
-  if [ -n "${id}" ]; then echo "${id}"; return 0; fi
+  # 幂等去重走 gql() 带重试直查：裸 gh project field-list 撞次级限流时 stdout 无 JSON，
+  # jq 静默空转会被误判「字段不存在」→ 重复创建被拒 → 脚本崩溃（2026-11-09 实测）。
+  # 原则：查询失败≠字段不存在——gql 重试耗尽即中止，绝不落入创建分支。
+  id=$(gql "query { viewer { projectV2(number: ${PJ_NUM}) { fields(first: 50) { nodes { ... on ProjectV2FieldCommon { id name } } } } } }" \
+       --jq '.data.viewer.projectV2.fields.nodes[]? | select(.name == "'"${1}"'") | .id' | head -1)
+  case "${id}" in
+    PVT*) echo "${id}"; return 0 ;;  # 已存在，幂等复用
+    "")   : ;;                       # 查询成功且确认不存在 → 走创建
+    *)    say "字段「${1}」去重拿到非法 id：${id}，中止"; exit 1 ;;
+  esac
   for attempt in 1 2 3; do
     if [ -n "${3:-}" ]; then
       out=$(gh project field-create "${PJ_NUM}" --owner "@me" --name "${1}" \
@@ -180,7 +187,7 @@ def put_file(path_in_repo, content, message):
     fields = {"message": message, "content": base64.b64encode(content.encode()).decode()}
     if code == 0:
         fields["sha"] = json.loads(out)["sha"]
-        if content.strip() in base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore"):
+        if content.strip() == base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore").strip():
             print(f"  已存在且内容一致，跳过: {path_in_repo}")
             return
     code, out, err = api(f"repos/{repo}/contents/{enc}", "PUT", fields)
@@ -189,17 +196,29 @@ def put_file(path_in_repo, content, message):
     else:
         print(f"  已写入: {path_in_repo}")
 
-# CLAUDE.md：存在则追加（幂等：检测小节标记），不存在则新建
+# CLAUDE.md：幂等标记=小节标题（v1.2.1 起模板正文不含 Project URL，勿用 url 判断——
+# 否则重跑会重复追加小节）；已注入则替换到下一个顶级标题（保留小节之后用户追加的内容），
+# 未注入则追加到文件尾
+marker = "## 项目管理（devledger"
 enc = "CLAUDE.md"
 code, out, _ = api(f"repos/{repo}/contents/{enc}")
 if code == 0:
     old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
     sha = json.loads(out)["sha"]
-    if url in old:
-        print("  CLAUDE.md 已含本 Project 规范小节，跳过")
-    else:
-        merged = old.rstrip() + "\n\n" + section + "\n"
-        put_file("CLAUDE.md", merged, f"chore: 项目管理规范化——CLAUDE.md 增记账规范（Project #{num}）")
+    idx = old.find(marker)
+    tail = ""
+    if idx >= 0:
+        nxt = old.find("\n## ", idx + len(marker))
+        if nxt >= 0:
+            tail = old[nxt:].lstrip("\n")   # 小节后的后续内容，原样保留
+            old = old[:nxt]
+        if old[idx:].strip() == section.strip() and not tail:
+            print("  CLAUDE.md 小节已是最新，跳过")
+            tail = None
+    if tail is not None:
+        base = old[:idx].rstrip() if idx >= 0 else old.rstrip()
+        merged = base + "\n\n" + section + ("\n" + tail if tail else "\n")
+        put_file("CLAUDE.md", merged, f"chore: 项目管理规范化——CLAUDE.md 记账规范注入/升级（Project #{num}）")
 else:
     put_file("CLAUDE.md", section + "\n", f"chore: 新建 CLAUDE.md——项目管理记账规范（Project #{num}）")
 
