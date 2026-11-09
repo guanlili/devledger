@@ -1,0 +1,26 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install openpyxl
+      - name: Syntax gates
+        run: |
+          for s in scripts/*.sh; do bash -n "$s"; done
+          python3 -m py_compile scripts/*.py
+      - name: ShellCheck (non-blocking)
+        run: sudo apt-get install -y shellcheck >/dev/null && shellcheck --severity=error scripts/*.sh
+        continue-on-error: true
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Ledger format check
+        run: python3 -c "import json;[e['fields'] for e in json.load(open('references/data/example-ledger.json'))]"

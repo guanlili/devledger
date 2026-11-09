@@ -2,6 +2,10 @@
 
 [English](README.md) | 简体中文
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational)](LICENSE)
+[![CI](https://github.com/guanlili/devledger/actions/workflows/ci.yml/badge.svg)](https://github.com/guanlili/devledger/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/guanlili/devledger)](https://github.com/guanlili/devledger/releases)
+
 **研发管理的自动账本。** 没记账的工作等于没做。
 
 devledger 是轻量、符合 [Agent Skills](https://agentskills.io) 规范的 skill：AI 开发会话收尾时，自动把需求、缺陷与工时记进 GitHub Projects 形成账本；验收时一条命令导出交付级汇总表。

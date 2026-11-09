@@ -2,6 +2,10 @@
 
 English | [简体中文](README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-informational)](LICENSE)
+[![CI](https://github.com/guanlili/devledger/actions/workflows/ci.yml/badge.svg)](https://github.com/guanlili/devledger/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/guanlili/devledger)](https://github.com/guanlili/devledger/releases)
+
 **The self-writing ledger for R&D management.** If it's not bookkept, it didn't happen.
 
 devledger is a lightweight, [Agent Skills](https://agentskills.io)-compliant skill that turns AI development sessions into an automatic issue + hours ledger on GitHub Projects. You talk to your AI; when the session ends, the work is already recorded — with type, source, dates, and human-equivalent hours. At acceptance time, export a client-ready timesheet with one command.
