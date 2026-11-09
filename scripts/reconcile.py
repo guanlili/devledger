@@ -27,39 +27,10 @@ Q = """query($cursor: String) { viewer { projectV2(number: %d) { items(first: 10
 } } } } """
 
 
-def norm(v):
-    """字段值归一：数字与数字字符串等价，其余按去空白字符串比较。
-
-    读回侧已把 Project 的数字字段归一为 str(int(x))（见 read_project），
-    所以真值文件里写 2 / 2.0 / "2" / "2.0" 都应判定为一致，避免全量误报 DRIFT。
-    """
-    if v is None:
-        return None
-    if isinstance(v, bool):
-        return str(v).lower()
-    if isinstance(v, (int, float)):
-        f = float(v)
-        return str(int(f)) if f.is_integer() else str(f)
-    s = str(v).strip()
-    try:
-        f = float(s)
-        return str(int(f)) if f.is_integer() else str(f)
-    except ValueError:
-        return s
-
-
-def run(args, retries=6):
-    last = ""
-    for a in range(retries):
-        try:
-            r = subprocess.run(args, capture_output=True, text=True, timeout=180)
-        except subprocess.TimeoutExpired:
-            r = type("R", (), {"returncode": 1, "stdout": "", "stderr": "timeout"})()
-        if r.returncode == 0:
-            return r.returncode, r.stdout.strip(), r.stderr.strip()
-        last = r.stderr.strip()
-        time.sleep(300 if "rate limit" in last.lower() else 20 * (a + 1))
-    return 1, "", last
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _common import norm, run  # noqa: E402  （单点维护限流/归一策略）
 
 
 def read_project(number):

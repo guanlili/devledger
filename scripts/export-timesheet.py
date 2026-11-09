@@ -46,19 +46,23 @@ query($cursor: String) {
 COLUMNS = ["需求名称", "类型", "来源", "需求人", "状态", "工时(h)", "开始", "结束", "交付轮次", "链接"]
 
 
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _common import gql, run  # noqa: E402
+
 def gh_graphql(query, cursor=None, retries=3):
-    """带重试的 graphql 调用（应对网络抖动）。"""
-    args = ["gh", "api", "graphql", "-f", "query=" + query.strip()]
+    """GraphQL 分页读 Project（限流退避见 _common）。"""
+    q = query.strip()
     if cursor:
-        args += ["-f", f"cursor={cursor}"]
-    last_err = ""
-    for attempt in range(retries):
-        proc = subprocess.run(args, capture_output=True, text=True)
-        if proc.returncode == 0:
-            return json.loads(proc.stdout)["data"]["viewer"]["projectV2"]
-        last_err = proc.stderr.strip()
-        time.sleep(10 * (attempt + 1))
-    sys.exit(f"gh api graphql 失败（重试{retries}次）：{last_err}")
+        q = q.replace("query($cursor: String)", "query($cursor: String)", 1)
+        # cursor 经 -f 传参
+        rc, out, err = run(["gh", "api", "graphql", "-f", "query=" + q, "-f", f"cursor={cursor}"], retries=retries)
+    else:
+        rc, out, err = run(["gh", "api", "graphql", "-f", "query=" + q], retries=retries)
+    if rc != 0:
+        sys.exit(f"gh api graphql 失败：{err[:200]}")
+    return json.loads(out)["data"]["viewer"]["projectV2"]
 
 
 def fetch_items(project_number):
