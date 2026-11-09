@@ -52,6 +52,26 @@ git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
 
 **Dogfooding**: devledger's own development is tracked by devledger — [see our live ledger](https://github.com/users/guanlili/projects/13). 本项目自身的开发账本就用 devledger 记（点开即真实数据）。
 
+## 为「一人舰队」（1+N 模式）而生
+
+devledger 面向正在成型的全新协作形态：**一个技术负责人 + 一群 AI Agent**——而不是大团队人间协作（那是 Jira 的问题域，我们永远不解决它）。
+
+```
+舰队长（你）                Agent 会话                   devledger
+──────────────            ─────────────               ─────────────
+判断：做什么/为什么     →   执行：怎么做            →    航海日志：发生过什么
+验收：结果对不对            会话收尾必记账               证据 · 工时 · 决策上下文
+```
+
+范式四法则（产品宪法）：
+
+1. **判断不委托**——What/Why/验收留在人，How 全部下放
+2. **执行必自证**——没记账的会话等于没干活
+3. **真相只一份**——issue 是唯一事实源，看板与报表皆派生
+4. **工时即度量**——人类等价工时是衡量委托值不值的经济学单位
+
+我们认为 AI 辅助交付的计费与度量是行业空白，devledger 要做它的可运行参考实践——见 [ROADMAP.md](ROADMAP.md)。
+
 ## 他人一句话接入
 
 对其 AI 说：「克隆 guanlili/devledger 到 ~/.agents/skills/devledger，跑 install.sh，按 SKILL.md 给我的仓库 <owner/repo> 接入项目管理」。管理员需先：加 devledger 仓库协作者 + 确认目标仓库写权限。

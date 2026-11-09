@@ -12,6 +12,27 @@ devledger is a lightweight, [Agent Skills](https://agentskills.io)-compliant ski
 
 **Dogfooding**: devledger's own development is tracked by devledger — [see our live ledger](https://github.com/users/guanlili/projects/13).
 
+## Built for the 1+N model
+
+devledger is designed for the emerging way small teams ship: **one tech lead + a swarm of AI agents** — not for coordinating big human teams (that's Jira's problem, and we won't solve it).
+
+```
+Tech lead (you)           Agent sessions              devledger
+──────────────            ─────────────               ─────────────
+judgment: what & why  →   execution: how         →    the log: what happened
+acceptance: good or not   self-reporting at          evidence · hours ·
+                          session end (hard rule)    decision context
+```
+
+Four laws of this paradigm (our product constitution):
+
+1. **Judgment is never delegated** — what/why/acceptance stay human; how is fully delegated
+2. **Execution must self-report** — a session that didn't bookkeep equals work that didn't happen
+3. **One source of truth** — issues are the ledger; boards and timesheets are derived views
+4. **Hours are the metric** — human-equivalent hours measure whether a delegation was worth it
+
+We think accounting for AI-assisted delivery is an open industry question. devledger aims to be a working reference practice for it — see [ROADMAP.md](ROADMAP.md).
+
 ## Why
 
 - **Zero-input accounting**: no timesheets to fill, no boards to update. The AI records deliverables at session end — a hard rule, not a habit.
