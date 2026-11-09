@@ -27,3 +27,11 @@ python3 -m unittest discover -s tests    # all green before you start
 ## Ledger note
 
 Maintainers bookkeep all merged work in the [project ledger](https://github.com/users/guanlili/projects/13) (hours tracked automatically — external contributors don't need ledger access). Community contributions are recorded with source `社区`.
+
+## How decisions are made
+
+Lightweight governance: maintainer decides after public discussion — open an issue/discussion first for anything non-trivial, PRs without prior discussion are still welcome but may be redirected. Breaking changes need a CHANGELOG entry and a version bump rationale.
+
+## Credit
+
+Merged community PRs get: authorship on the squash commit, a `Thanks @you` line in [CHANGELOG.md](CHANGELOG.md) / release notes, and a ledger entry (source `社区`) so the project's history shows who built what.
