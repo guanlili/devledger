@@ -62,6 +62,13 @@ Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Wor
 - [references/methodology.md](references/methodology.md) — principles, data model, migration patterns
 - [README.zh-CN.md](README.zh-CN.md) — full documentation in Chinese
 
+## Support
+
+- 🐛 Bugs: [open an issue](https://github.com/guanlili/devledger/issues/new?template=bug_report.md)
+- 💡 Ideas: [feature request](https://github.com/guanlili/devledger/issues/new?template=feature_request.md)
+- 💬 Q&A / usage: [GitHub Discussions](https://github.com/guanlili/devledger/discussions)（中英文均可）
+- 🔒 Security: see [SECURITY.md](SECURITY.md)
+
 ## License
 
 [MIT](LICENSE)

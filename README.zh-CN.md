@@ -55,3 +55,10 @@ git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
 ## 他人一句话接入
 
 对其 AI 说：「克隆 guanlili/devledger 到 ~/.agents/skills/devledger，跑 install.sh，按 SKILL.md 给我的仓库 <owner/repo> 接入项目管理」。管理员需先：加 devledger 仓库协作者 + 确认目标仓库写权限。
+
+## 支持
+
+- 🐛 报 bug：[提 issue](https://github.com/guanlili/devledger/issues/new?template=bug_report.md)
+- 💡 提需求：[feature request](https://github.com/guanlili/devledger/issues/new?template=feature_request.md)
+- 💬 使用问答：[GitHub Discussions](https://github.com/guanlili/devledger/discussions)（中英文均可）
+- 🔒 安全问题：见 [SECURITY.md](SECURITY.md)

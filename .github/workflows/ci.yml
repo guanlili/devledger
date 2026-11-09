@@ -6,7 +6,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]   # macOS 自带 bash 3.2 —— 验证兼容性承诺
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,7 +21,8 @@ jobs:
         run: |
           for s in scripts/*.sh; do bash -n "$s"; done
           python3 -m py_compile scripts/*.py
-      - name: ShellCheck (non-blocking)
+      - name: ShellCheck (non-blocking, Linux only)
+        if: runner.os == 'Linux'
         run: sudo apt-get install -y shellcheck >/dev/null && shellcheck --severity=error scripts/*.sh
         continue-on-error: true
       - name: Unit tests
