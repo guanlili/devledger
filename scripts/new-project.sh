@@ -197,7 +197,8 @@ def put_file(path_in_repo, content, message):
         print(f"  已写入: {path_in_repo}")
 
 # CLAUDE.md：幂等标记=小节标题（v1.2.1 起模板正文不含 Project URL，勿用 url 判断——
-# 否则重跑会重复追加小节）；已注入则整段替换为最新模板（顺带承担协议升级），未注入则追加
+# 否则重跑会重复追加小节）；已注入则替换到下一个顶级标题（保留小节之后用户追加的内容），
+# 未注入则追加到文件尾
 marker = "## 项目管理（devledger"
 enc = "CLAUDE.md"
 code, out, _ = api(f"repos/{repo}/contents/{enc}")
@@ -205,10 +206,18 @@ if code == 0:
     old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
     sha = json.loads(out)["sha"]
     idx = old.find(marker)
-    if idx >= 0 and old[idx:].strip() == section.strip():
-        print("  CLAUDE.md 小节已是最新，跳过")
-    else:
-        merged = (old[:idx].rstrip() + "\n\n" + section + "\n") if idx >= 0 else (old.rstrip() + "\n\n" + section + "\n")
+    tail = ""
+    if idx >= 0:
+        nxt = old.find("\n## ", idx + len(marker))
+        if nxt >= 0:
+            tail = old[nxt:].lstrip("\n")   # 小节后的后续内容，原样保留
+            old = old[:nxt]
+        if old[idx:].strip() == section.strip() and not tail:
+            print("  CLAUDE.md 小节已是最新，跳过")
+            tail = None
+    if tail is not None:
+        base = old[:idx].rstrip() if idx >= 0 else old.rstrip()
+        merged = base + "\n\n" + section + ("\n" + tail if tail else "\n")
         put_file("CLAUDE.md", merged, f"chore: 项目管理规范化——CLAUDE.md 记账规范注入/升级（Project #{num}）")
 else:
     put_file("CLAUDE.md", section + "\n", f"chore: 新建 CLAUDE.md——项目管理记账规范（Project #{num}）")

@@ -48,3 +48,8 @@ class TestInjectionDedupMarker(unittest.TestCase):
         误判为已存在（2026-11-09 实测：CLAUDE.md 重复小节因此修不掉）"""
         self.assertNotIn("content.strip() in base64", SCRIPT)
         self.assertIn("content.strip() ==", SCRIPT)
+
+    def test_section_replace_preserves_trailing_content(self):
+        """小节替换必须截止到下一个顶级标题，不得吃掉用户在小节后追加的内容"""
+        self.assertIn('old.find("\\n## ", idx + len(marker))', SCRIPT)
+        self.assertIn("tail = old[nxt:].lstrip", SCRIPT)
