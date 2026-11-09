@@ -88,6 +88,8 @@ def read_project(number):
                 elif fn == "工时(h)":
                     num = v.get("number")
                     vals["工时(h)"] = str(int(num)) if num is not None and float(num).is_integer() else (str(num) if num is not None else None)
+                elif fn == "需求人":
+                    vals["需求人"] = v.get("text")
                 elif fn == "开始":
                     vals["开始"] = v.get("date")
                 elif fn == "结束":
