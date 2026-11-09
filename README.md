@@ -13,10 +13,23 @@ devledger is a lightweight, [Agent Skills](https://agentskills.io)-compliant ski
 
 ## Quick start
 
+**See it in 2 minutes** (no AI, no real repo needed — auto sandbox, auto ledger, auto timesheet):
+
 ```bash
-git clone git@github.com:guanlili/devledger.git ~/.agents/skills/devledger
-bash ~/.agents/skills/devledger/scripts/install.sh          # idempotent self-check
-~/devledger/scripts/new-project.sh <owner/repo>             # onboard any repo in one command
+bash ~/.agents/skills/devledger/scripts/demo.sh
+```
+
+**Install / Update** — the same idempotent command does both (and self-checks gh auth & scopes):
+
+```bash
+git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
+bash ~/.agents/skills/devledger/scripts/install.sh    # install; re-run anytime to update/repair
+```
+
+**Onboard your repo** (one command; Project name = repo name):
+
+```bash
+~/devledger/scripts/new-project.sh <owner/repo>
 ```
 
 Daily loop: work with your AI as usual → session end auto-records the ledger.
@@ -62,11 +75,15 @@ Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Wor
 ## 快速上手
 
 ```bash
-git clone git@github.com:guanlili/devledger.git ~/.agents/skills/devledger
-bash ~/.agents/skills/devledger/scripts/install.sh            # 幂等自检
-~/devledger/scripts/new-project.sh <owner/repo> [--local <路径>]  # 建项（Project 名=仓库名）
-python3 ~/devledger/scripts/export-timesheet.py --project <N> [--customer]  # 验收表
+# ① 2 分钟看效果（自动建沙盒→接入→记 2 条账→导出验收表，无需 AI 和真实仓库）
+bash ~/.agents/skills/devledger/scripts/demo.sh
+# ② 安装（HTTPS 免 SSH key）
+git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
+# ③ 接入你的仓库（一条命令）
+~/devledger/scripts/new-project.sh <owner/repo>
 ```
+
+**更新 = 重跑安装命令**：`bash ~/.agents/skills/devledger/scripts/install.sh`（同一条命令完成 安装/更新/自检，坏了随时重跑）
 
 | 路径 | 用途 |
 |---|---|

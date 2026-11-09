@@ -62,6 +62,12 @@ if [ -n "${PM_RESUME:-}" ]; then
   say "续跑 Project #${PJ_NUM}  ${PJ_URL}"
 else
   say "创建 Project: ${TITLE}"
+  PJ_EXIST=$(gql "query { viewer { projectsV2(first: 30) { nodes { number title url id } } } }" --jq '.data.viewer.projectsV2.nodes' || true)
+  PJ_JSON=$(jq -c --arg t "${TITLE}" '.[] | select(.title == $t)' <<<"${PJ_EXIST}" 2>/dev/null | head -1)
+  if [ -n "${PJ_JSON:-}" ] && [ "${PJ_JSON}" != "null" ]; then
+    PJ_NUM=$(jq -r .number <<<"${PJ_JSON}"); PJ_ID=$(jq -r .id <<<"${PJ_JSON}"); PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
+    say "  复用已存在的 Project #${PJ_NUM}（同名去重，重跑安全）"
+  else
   PJ_JSON=""
   for attempt in 1 2 3 4; do
     if PJ_JSON=$(gh project create --owner "@me" --title "${TITLE}" --format json 2>/dev/null); then break; fi
@@ -75,6 +81,7 @@ else
   PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
   say "  Project #${PJ_NUM}  ${PJ_URL}（中断后可 PM_RESUME=${PJ_NUM} 续跑）"
   sleep "${PACE}"
+  fi
 fi
 
 # ---------- 2. 建 6 个自定义字段 ----------
@@ -140,7 +147,7 @@ if [ -n "${LOCAL_DIR}" ]; then
   fi
 else
 say "注入记账规范到仓库（CLAUDE.md + issue 模板）"
-PM_DIR="$(cd "$(dirname "$0")/.." PM_DIR="$(cd "$(dirname "$0")" && pwd)"PM_DIR="$(cd "$(dirname "$0")" && pwd)" pwd)"
+PM_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="${REPO}" PJ_NUM="${PJ_NUM}" PJ_URL="${PJ_URL}" PJ_TITLE="${TITLE}" PM_DIR="${PM_DIR}" python3 - <<'PYEOF'
 import base64, json, os, subprocess, sys, urllib.parse
 

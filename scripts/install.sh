@@ -1,55 +1,42 @@
 #!/usr/bin/env bash
-# devledger 一键安装（幂等）：克隆/更新 skill 到 ~/.agents/skills/devledger + 前置自检
-# 用法：bash install.sh   （在已克隆的 devledger 目录内执行，或由 AI 代跑）
+# devledger 安装 / 更新 / 自检——三合一，同一条命令（幂等，可反复跑）
+#   安装：克隆后 bash scripts/install.sh   （或见 README 一键命令）
+#   更新：bash ~/.agents/skills/devledger/scripts/install.sh
 set -euo pipefail
 
 DEST="${HOME}/.agents/skills/devledger"
-SRC="$(cd "$(dirname "$0")" && pwd)"
+SRC="$(cd "$(dirname "$0")/.." && pwd)"
 say() { printf '==> %s\n' "$*" >&2; }
 
-# 1) 就位：本目录已是目标位置则跳过；否则克隆/更新
-if [ "${SRC}" = "${DEST}" ]; then
-  say "已在 ${DEST}（skill 就位）"
-else
-  if [ -d "${DEST}/.git" ]; then
-    say "更新已安装的 ${DEST}"
-    git -C "${DEST}" pull --ff-only >/dev/null 2>&1 || say "  更新失败（本地有改动？），沿用现有版本"
-  else
-    say "克隆 devledger 到 ${DEST}"
-    git clone "$(git -C "${SRC}" remote get-url origin 2>/dev/null || echo https://github.com/guanlili/devledger.git)" "${DEST}"
-  fi
+# 1) 就位（未在标准位置则克隆；HTTPS 免 SSH key）
+if [ "${SRC}" != "${DEST}" ] && [ ! -d "${DEST}/.git" ]; then
+  say "克隆 devledger 到 ${DEST}"
+  git clone https://github.com/guanlili/devledger.git "${DEST}"
 fi
+[ -d "${DEST}/.git" ] || { say "未找到 ${DEST}，请先克隆仓库"; exit 1; }
 
-# 2) gh CLI 检查
-if ! command -v gh >/dev/null 2>&1; then
-  say "缺少 gh CLI。安装：brew install gh（或 https://cli.github.com/），然后重新运行本脚本"
-  exit 1
-fi
-say "gh CLI 就绪：$(gh --version | head -1)"
+# 2) 更新（ff-only；无网/本地改动则跳过，不阻塞自检）
+say "检查更新"
+git -C "${DEST}" pull --ff-only --quiet 2>/dev/null && say "  已是最新" || say "  跳过更新（离线或本地有改动），继续自检"
 
-# 3) 登录与权限检查
-if ! gh auth status >/dev/null 2>&1; then
-  say "未登录 GitHub。请执行：gh auth login（浏览器确认一次），然后重新运行本脚本"
-  exit 1
-fi
+# 3) 版本
+VER=$(awk '/^  version:/{gsub(/"/,""); print $2}' "${DEST}/SKILL.md" 2>/dev/null || true)
+say "devledger ${VER:-unknown}"
+
+# 4) 前置自检
+command -v gh >/dev/null 2>&1 || { say "缺 gh CLI：brew install gh（https://cli.github.com），装好后重跑本命令"; exit 1; }
+say "gh CLI：$(gh --version | head -1)"
+gh auth status >/dev/null 2>&1 || { say "未登录 GitHub：gh auth login（浏览器确认一次），再重跑"; exit 1; }
 SCOPES=$(gh auth status 2>&1 | grep -o "scopes:.*" || true)
 case "${SCOPES}" in
-  *project*) say "gh 权限就绪（${SCOPES#scopes: }）" ;;
-  *) say "缺 project 权限，发起授权（浏览器确认一次）：gh auth refresh -h github.com -s project,read:project"
-     gh auth refresh -h github.com -s project,read:project || true ;;
+  *project*) say "gh 权限就绪" ;;
+  *) say "补 project 权限（浏览器确认一次）"; gh auth refresh -h github.com -s project,read:project || true ;;
 esac
-
-# 4) python + openpyxl（扩展工具用；缺了不影响记账）
-if python3 -c "import openpyxl" >/dev/null 2>&1; then
-  say "python3 + openpyxl 就绪"
-else
-  say "提示：验收导出需要 openpyxl（pip3 install --user openpyxl）；日常记账不受影响"
-fi
+python3 -c "import openpyxl" >/dev/null 2>&1 && say "openpyxl 就绪" || say "提示：导出验收表需 pip3 install --user openpyxl（记账不受影响）"
 
 cat <<EOF
 
-✅ devledger 安装完成
-   下一步（一句话）：让你的 AI 读 ${DEST}/SKILL.md 并执行
-   scripts/new-project.sh <owner/repo> [--local <项目路径>]   # Project 名=仓库名
-   若克隆/推送超时：前缀 HTTPS_PROXY=http://127.0.0.1:7897（坑9）
-   无 guanlili/devledger 访问权会克隆失败：请仓库主人添加协作者
+✅ devledger ${VER:-} 就绪（安装/更新/自检是同一条命令，坏了随时重跑）
+   立即看效果：bash ${DEST}/scripts/demo.sh        # 2 分钟全自动演示
+   接入仓库：  bash ${DEST}/scripts/new-project.sh <owner/repo>
+   网络超时：  命令前缀 HTTPS_PROXY=http://127.0.0.1:7897
