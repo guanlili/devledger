@@ -4,7 +4,11 @@
 
 1. **编码**：`gh project item-list` 损坏中文自定义字段名首字节（值正常）→ 读数据一律 `gh api graphql` 直查 ProjectV2
 2. **设值**：`gh project item-edit` 用 `--field 名 --value 值`（无 --single-select-option 旗标）
-3. **限流两层**：主 5000 点/小时（等 `rateLimit.resetAt`）；次级限流=连续写触发（静默 5-10 分钟，间隔数秒低速重试，勿快试加剧）
+3. **限流两层**：主 5000 点/小时（等 `rateLimit.resetAt`）；次级限流=连续写触发（2026-11-09 energy-platform 18 条回填实测细节）：
+   - 触发阈值约 **40–70 次连续写**；冷却期 GraphQL **读写全封**——`gh issue list` 等底层走 GraphQL 的命令也挂，报错同为 "rate limit exceeded"
+   - 判别法：先查 `gh api rate_limit`，主限流余量充足却报限流 = 次级（REST 端点本身不受次级限流影响，冷却期可用 `gh api repos/...` 读数据）
+   - **重试会续窗口**：300s 间隔的探测性重试让冷却拖过 20 分钟不散；必须真·静默（零 API 调用）10–20 分钟才清
+   - 批量写策略：操作间 ≥3s 步速、失败退避 ≥120s、设计成断点可续跑（只补差异），撞限流就整段静默冷却而不是逐条硬试
 4. **视图**：API 建的字段不进已有视图 → `updateProjectV2View` 的 `visibleFieldIds` 配列
 5. **mutation 参数**：update/delete 类只收 `fieldId`，不收 `projectId`
 6. **选项整体替换**：`updateProjectV2Field.singleSelectOptions` 重交会**清空全部条目已选值** → 改选项后必须全量读回对账重设
