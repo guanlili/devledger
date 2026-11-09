@@ -1,0 +1,6 @@
+*.xlsx
+__pycache__/
+
+# 真实项目账本含客户信息，永不入库（本地放 ~/devledger-private/data）
+references/data/*.json
+!references/data/example-ledger.json

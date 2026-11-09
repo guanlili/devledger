@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# 通用 GitHub 项目管理一键建项：建 Project + 6 字段 + Status 中文化 + View 1 配列 + 仓库类型 labels
+# 用法: new-project.sh <owner/repo>   → Project 名=仓库名（客户名含在仓库名里，零额外输入）
+# 例:   new-project.sh yourorg/any-repo        → Project 名 = any-repo
+# 兼容 macOS 自带 bash 3.2：无关联数组；变量一律 ${VAR} 花括号；$VAR 不紧跟多字节字符
+set -euo pipefail
+
+REPO="${1:-}"
+LOCAL_DIR=""
+if [ "${2:-}" = "--local" ]; then
+  LOCAL_DIR="${3:-$(pwd)}"
+fi
+if [ -z "${REPO}" ]; then
+  echo "用法: new-project.sh <owner/repo> [--local <项目路径>]   Project 名=仓库名（客户名请含在仓库名里）" >&2
+  exit 1
+fi
+REPO_NAME="${REPO##*/}"
+TITLE="${REPO_NAME}"
+PACE=2   # 写操作间隔秒数，防次级限流
+
+say() { printf '==> %s\n' "$*" >&2; }
+
+gql() { # gql '<query>' [额外gh参数...] → stdout 透传 gh 输出；失败重试，耗尽时打印真实错误
+  local q="$1" attempt out errf; shift
+  errf=$(mktemp)
+  for attempt in 1 2 3 4; do
+    if out=$(gh api graphql -f query="${q}" "$@" 2>"${errf}"); then
+      printf '%s' "${out}"; rm -f "${errf}"; return 0
+    fi
+    say "  graphql 失败(第${attempt}次)，重试..."
+    sleep $((attempt * 15))
+  done
+  say "graphql 重试耗尽，最后错误: $(cat "${errf}")"; rm -f "${errf}"; return 1
+}
+
+mkfield() { # $1=字段名 $2=类型 $3=选项(可空) → stdout 输出 field id；幂等+重试
+  local id out attempt
+  id=$(gh project field-list "${PJ_NUM}" --owner "@me" --format json 2>/dev/null \
+       | jq -r --arg n "${1}" '.fields[]? | select(.name == $n) | .id' | head -1)
+  if [ -n "${id}" ]; then echo "${id}"; return 0; fi
+  for attempt in 1 2 3; do
+    if [ -n "${3:-}" ]; then
+      out=$(gh project field-create "${PJ_NUM}" --owner "@me" --name "${1}" \
+              --data-type "${2}" --single-select-options "${3}" --format json 2>/dev/null)
+    else
+      out=$(gh project field-create "${PJ_NUM}" --owner "@me" --name "${1}" \
+              --data-type "${2}" --format json 2>/dev/null)
+    fi
+    if [ -n "${out}" ]; then jq -r .id <<<"${out}"; sleep "${PACE}"; return 0; fi
+    say "  字段「${1}」创建失败(第${attempt}次)，重试..."
+    sleep $((attempt * 10))
+  done
+  say "字段 ${1} 创建失败"; exit 1
+}
+
+# ---------- 1. 建 Project（PM_RESUME=<编号> 可续跑半成品） ----------
+if [ -n "${PM_RESUME:-}" ]; then
+  PJ_NUM="${PM_RESUME}"
+  PJ_JSON=$(gql "query { viewer { projectV2(number: ${PJ_NUM}) { id url title } } }" --jq '.data.viewer.projectV2')
+  PJ_ID=$(jq -r .id <<<"${PJ_JSON}")
+  PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
+  say "续跑 Project #${PJ_NUM}  ${PJ_URL}"
+else
+  say "创建 Project: ${TITLE}"
+  PJ_JSON=""
+  for attempt in 1 2 3 4; do
+    if PJ_JSON=$(gh project create --owner "@me" --title "${TITLE}" --format json 2>/dev/null); then break; fi
+    say "  创建失败(第${attempt}次)，重试..."
+    sleep $((attempt * 15))
+    PJ_JSON=""
+  done
+  [ -n "${PJ_JSON}" ] || { say "Project 创建失败"; exit 1; }
+  PJ_NUM=$(jq -r .number <<<"${PJ_JSON}")
+  PJ_ID=$(jq -r .id <<<"${PJ_JSON}")
+  PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
+  say "  Project #${PJ_NUM}  ${PJ_URL}（中断后可 PM_RESUME=${PJ_NUM} 续跑）"
+  sleep "${PACE}"
+fi
+
+# ---------- 2. 建 6 个自定义字段 ----------
+FID_FTYPE=$(mkfield  "类型"     SINGLE_SELECT "需求,缺陷,优化,交付线,文档")
+say "  字段ok 类型=${FID_FTYPE}"
+FID_FHOURS=$(mkfield "工时(h)"  NUMBER        "")
+say "  字段ok 工时=${FID_FHOURS}"
+FID_FSTART=$(mkfield "开始"     DATE          "")
+say "  字段ok 开始=${FID_FSTART}"
+FID_FEND=$(mkfield   "结束"     DATE          "")
+say "  字段ok 结束=${FID_FEND}"
+FID_FSOURCE=$(mkfield "来源"    SINGLE_SELECT "甲方,内部")
+say "  字段ok 来源=${FID_FSOURCE}"
+
+# ---------- 3. Status 选项中文化 ----------
+say "Status 选项中文化"
+ALL_FIELDS=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { fields(first: 30) { nodes { ... on ProjectV2FieldCommon { id name } } } } } }" \
+             --jq '.data.node.fields.nodes')
+STATUS_ID=$(jq -r '.[] | select(.name == "Status") | .id' <<<"${ALL_FIELDS}")
+TITLE_ID=$(jq -r '.[] | select(.name == "Title") | .id' <<<"${ALL_FIELDS}")
+ASSIGNEE_ID=$(jq -r '.[] | select(.name == "Assignees") | .id' <<<"${ALL_FIELDS}")
+gql "mutation { updateProjectV2Field(input: {fieldId: \"${STATUS_ID}\", singleSelectOptions: [
+  {name: \"待办\", color: GRAY, description: \"\"},
+  {name: \"开发中\", color: YELLOW, description: \"\"},
+  {name: \"已完成\", color: GREEN, description: \"\"}
+]}) { projectV2Field { ... on ProjectV2SingleSelectField { options { name } } } } }" >/dev/null
+say "  Status=${STATUS_ID} 选项: 待办/开发中/已完成"
+sleep "${PACE}"
+
+# ---------- 4. View 1 配可见列（API 建的字段不会自动进视图） ----------
+say "配置 View 1 可见列"
+VIEW_ID=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { views(first: 5) { nodes { id name } } } } }" \
+          --jq '.data.node.views.nodes[0].id')
+VFIDS="\"${TITLE_ID}\", \"${STATUS_ID}\", \"${FID_FTYPE}\", \"${FID_FHOURS}\", \"${FID_FSTART}\", \"${FID_FEND}\", \"${FID_FSOURCE}\", \"${ASSIGNEE_ID}\""
+gql "mutation { updateProjectV2View(input: {viewId: \"${VIEW_ID}\", configuration: {visibleFieldIds: [${VFIDS}]}}) { projectV2View { name } } }" >/dev/null
+say "  View 1 已配 8 列"
+sleep "${PACE}"
+
+# ---------- 5. 仓库类型 labels ----------
+say "仓库 ${REPO} 建 5 个类型 label"
+for l in "需求:0E8A16" "缺陷:D93F0B" "优化:1D76DB" "交付线:5319E7" "文档:705721"; do
+  gh label create "${l%%:*}" -R "${REPO}" --color "${l##*:}" --force >/dev/null 2>&1 || true
+  sleep 1
+done
+
+# ---------- 6. 注入规范（--local=本地占位符替换；否则 API 注入） ----------
+if [ -n "${LOCAL_DIR}" ]; then
+  say "本地模式：替换 ${LOCAL_DIR} 中的 __PM_PROJECT__ 占位符"
+  CHANGED=0
+  for f in "${LOCAL_DIR}/CLAUDE.md" "${LOCAL_DIR}/.github/ISSUE_TEMPLATE/需求.md"; do
+    if [ -f "${f}" ] && grep -q "__PM_PROJECT__" "${f}"; then
+      sed -i '' "s/__PM_PROJECT__/${PJ_NUM}/g" "${f}"
+      CHANGED=$((CHANGED+1))
+      say "  已替换 ${f}"
+    fi
+  done
+  if [ "${CHANGED}" -gt 0 ]; then
+    git -C "${LOCAL_DIR}" add CLAUDE.md .github/ISSUE_TEMPLATE/需求.md 2>/dev/null
+    git -C "${LOCAL_DIR}" commit -q -m "chore: devledger 项目管理激活（Project #${PJ_NUM}）" 2>/dev/null
+    say "  已本地提交（请自行 push）"
+  else
+    say "  WARN 未找到占位符（非脚手架项目？改用 API 注入模式重跑不带 --local）"
+  fi
+else
+say "注入记账规范到仓库（CLAUDE.md + issue 模板）"
+PM_DIR="$(cd "$(dirname "$0")/.." PM_DIR="$(cd "$(dirname "$0")" && pwd)"PM_DIR="$(cd "$(dirname "$0")" && pwd)" pwd)"
+REPO="${REPO}" PJ_NUM="${PJ_NUM}" PJ_URL="${PJ_URL}" PJ_TITLE="${TITLE}" PM_DIR="${PM_DIR}" python3 - <<'PYEOF'
+import base64, json, os, subprocess, sys, urllib.parse
+
+repo, num, url, title, pmdir = (os.environ[k] for k in ("REPO", "PJ_NUM", "PJ_URL", "PJ_TITLE", "PM_DIR"))
+section = open(f"{pmdir}/assets/claude-section.template.md", encoding="utf-8").read()
+# 占位符双保险：新版 __PM_PROJECT__ 与旧版 {PJ_*} 都替换（坑7教训：注入后 grep 验证）
+section = section.replace("__PM_PROJECT__", num).replace("{PJ_TITLE}", title).replace("{PJ_URL}", url).replace("{PJ_NUM}", num)
+issue_tpl = open(f"{pmdir}/assets/issue-template.md", encoding="utf-8").read().replace("__PM_PROJECT__", num).replace("{PJ_NUM}", num)
+assert "__PM_PROJECT__" not in section and "__PM_PROJECT__" not in issue_tpl, "占位符未替换干净"
+
+def api(path, method="GET", fields=None):
+    cmd = ["gh", "api", path]
+    if method != "GET":
+        cmd += ["-X", method]
+    for k, v in (fields or {}).items():
+        cmd += ["-f", f"{k}={v}"]
+    import time as _t
+    for attempt in range(4):
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        if r.returncode == 0 or "404" in r.stderr or "NOT_FOUND" in r.stderr:
+            return r.returncode, r.stdout, r.stderr  # 成功或确定不存在，直接返回
+        _t.sleep(10 * (attempt + 1))  # 网络抖动重试
+    return r.returncode, r.stdout, r.stderr
+
+def put_file(path_in_repo, content, message):
+    enc = urllib.parse.quote(path_in_repo)
+    code, out, err = api(f"repos/{repo}/contents/{enc}")
+    fields = {"message": message, "content": base64.b64encode(content.encode()).decode()}
+    if code == 0:
+        fields["sha"] = json.loads(out)["sha"]
+        if content.strip() in base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore"):
+            print(f"  已存在且内容一致，跳过: {path_in_repo}")
+            return
+    code, out, err = api(f"repos/{repo}/contents/{enc}", "PUT", fields)
+    if code != 0:
+        print(f"  WARN 写入失败 {path_in_repo}: {err.strip()[:200]}")
+    else:
+        print(f"  已写入: {path_in_repo}")
+
+# CLAUDE.md：存在则追加（幂等：检测小节标记），不存在则新建
+enc = "CLAUDE.md"
+code, out, _ = api(f"repos/{repo}/contents/{enc}")
+if code == 0:
+    old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
+    sha = json.loads(out)["sha"]
+    if url in old:
+        print("  CLAUDE.md 已含本 Project 规范小节，跳过")
+    else:
+        merged = old.rstrip() + "\n\n" + section + "\n"
+        put_file("CLAUDE.md", merged, f"chore: 项目管理规范化——CLAUDE.md 增记账规范（Project #{num}）")
+else:
+    put_file("CLAUDE.md", section + "\n", f"chore: 新建 CLAUDE.md——项目管理记账规范（Project #{num}）")
+
+put_file(".github/ISSUE_TEMPLATE/需求.md", issue_tpl, f"chore: 项目管理 issue 模板（Project #{num}）")
+PYEOF
+fi
+
+cat <<EOF
+
+✅ 建项完成（规范已自动注入仓库）
+   Project: #${PJ_NUM}  ${PJ_URL}
+   规范注入：${LOCAL_DIR:+本地占位符已替换并提交（--local 模式）}${LOCAL_DIR:-API 已写入 CLAUDE.md 小节与 issue 模板}
+   验收导出: python3 ~/devledger/export-timesheet.py --project ${PJ_NUM}
+EOF
