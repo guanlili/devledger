@@ -101,6 +101,8 @@ git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
 
 已在多个交付项目上实战运行（内部私有仓库）；接入你的第一个项目只需一条命令。
 
+**Dogfooding**: devledger's own development is tracked by devledger — [see our live ledger](https://github.com/users/guanlili/projects/13). 本项目自身的开发账本就用 devledger 记（点开即真实数据）。
+
 ## 他人一句话接入
 
 对其 AI 说：「克隆 guanlili/devledger 到 ~/.agents/skills/devledger，跑 install.sh，按 SKILL.md 给我的仓库 <owner/repo> 接入项目管理」。管理员需先：加 devledger 仓库协作者 + 确认目标仓库写权限。
