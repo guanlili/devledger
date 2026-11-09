@@ -10,4 +10,4 @@
 6. **选项整体替换**：`updateProjectV2Field.singleSelectOptions` 重交会**清空全部条目已选值** → 改选项后必须全量读回对账重设
 7. **读回验证**：批量写以 GraphQL 读回为准（item-edit 会静默失败；item-add 有读回延迟）；对账模式=读回→diff→补写→循环到干净（reconcile.py）
 8. **bash 3.2（macOS）**：无关联数组；`$VAR` 一律写 `${VAR}` 且不紧跟中文字符
-9. **代理**：终端访问 github.com 网页域（OAuth/push）超时 → 前缀 `HTTPS_PROXY=http://127.0.0.1:7897`；api.github.com 可直连
+9. **代理**：终端访问 github.com 网页域（OAuth/push）超时 → 配置 `HTTPS_PROXY` 指向本地代理；api.github.com 通常可直连

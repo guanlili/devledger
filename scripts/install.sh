@@ -39,4 +39,4 @@ cat <<EOF
 ✅ devledger ${VER:-} 就绪（安装/更新/自检是同一条命令，坏了随时重跑）
    立即看效果：bash ${DEST}/scripts/demo.sh        # 2 分钟全自动演示
    接入仓库：  bash ${DEST}/scripts/new-project.sh <owner/repo>
-   网络超时：  命令前缀 HTTPS_PROXY=http://127.0.0.1:7897
+   网络超时：  配置 HTTPS_PROXY 指向你的本地代理后重试
