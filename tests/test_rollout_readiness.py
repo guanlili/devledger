@@ -42,3 +42,8 @@ class TestRolloutReadiness(unittest.TestCase):
     def test_export_no_dead_code(self):
         """export 中不留 no-op 替换死代码"""
         self.assertNotIn('"query($cursor: String)", "query($cursor: String)"', EXPORT)
+
+    def test_status_options_skip_when_identical(self):
+        """坑6:Status 选项重交会清空全部条目已选值——已一致必须跳过 mutation(读回比对)"""
+        self.assertIn("已是中文", NP)
+        self.assertRegex(NP, r"CURRENT_OPTS=\$\(")

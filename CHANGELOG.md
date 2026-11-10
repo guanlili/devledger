@@ -3,6 +3,8 @@
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); versioning: SemVer.
 
 ## [Unreleased]
+### Fixed
+- `new-project.sh`: 坑6 升级地雷——Status 选项已一致时跳过 `updateProjectV2Field` 重交（实测重交会清空全部条目已选值,升级有数据的仓库必踩；沙盒复现验证）
 ### Added
 - `new-project.sh` 注入 AGENTS.md 小节（Codex 等读 AGENTS.md 的工具入口；与 CLAUDE.md 共用 `merge_section` 小节级幂等合并）；`install.sh` 建兼容软链 `~/devledger`；模板路径统一为标准安装路径 `~/.agents/skills/devledger`（他人机器引用不再断裂）
 ### Docs

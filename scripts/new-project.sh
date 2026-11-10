@@ -112,13 +112,20 @@ ALL_FIELDS=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { fields(fir
 STATUS_ID=$(jq -r '.[] | select(.name == "Status") | .id' <<<"${ALL_FIELDS}")
 TITLE_ID=$(jq -r '.[] | select(.name == "Title") | .id' <<<"${ALL_FIELDS}")
 ASSIGNEE_ID=$(jq -r '.[] | select(.name == "Assignees") | .id' <<<"${ALL_FIELDS}")
-gql "mutation { updateProjectV2Field(input: {fieldId: \"${STATUS_ID}\", singleSelectOptions: [
-  {name: \"待办\", color: GRAY, description: \"\"},
-  {name: \"开发中\", color: YELLOW, description: \"\"},
-  {name: \"已完成\", color: GREEN, description: \"\"}
-]}) { projectV2Field { ... on ProjectV2SingleSelectField { options { name } } } } }" >/dev/null
-say "  Status=${STATUS_ID} 选项: 待办/开发中/已完成"
-sleep "${PACE}"
+# 坑6：singleSelectOptions 重交会清空全部条目已选值——选项已一致时必须跳过 mutation（读回比对）
+CURRENT_OPTS=$(gql "query { node(id: \"${STATUS_ID}\") { ... on ProjectV2SingleSelectField { options { name } } } }" \
+               --jq '[.data.node.options[].name] | join(",")')
+if [ "${CURRENT_OPTS}" = "待办,开发中,已完成" ]; then
+  say "  Status 选项已是中文，跳过（坑6：重交会清空条目已选值）"
+else
+  gql "mutation { updateProjectV2Field(input: {fieldId: \"${STATUS_ID}\", singleSelectOptions: [
+    {name: \"待办\", color: GRAY, description: \"\"},
+    {name: \"开发中\", color: YELLOW, description: \"\"},
+    {name: \"已完成\", color: GREEN, description: \"\"}
+  ]}) { projectV2Field { ... on ProjectV2SingleSelectField { options { name } } } } }" >/dev/null
+  say "  Status=${STATUS_ID} 选项: 待办/开发中/已完成"
+  sleep "${PACE}"
+fi
 
 # ---------- 4. View 1 配可见列（API 建的字段不会自动进视图） ----------
 say "配置 View 1 可见列"
