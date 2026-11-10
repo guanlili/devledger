@@ -33,6 +33,7 @@ Nothing to build — infrastructure is complete. The task is visibility: awesome
 - **No Jira features** — scheduling, assignment, multi-human approval flows solve problems that don't exist in 1+N
 - **No wall-clock tracking** — human-equivalent hours only; auto-timing turns a ledger into surveillance and changes what the tool is
 - **No feature chasing** — every new field or ritual must answer "who consumes this?" (we once deleted our own priority field for failing this test)
+- **No productized backfill/migration tooling** — old-ledger migration is rare (one-off per project, mostly at adoption); the manual pattern in methodology.md plus battle notes in pitfalls suffice. Decided 2026-11-10 after the energy-platform Feishu migration: worth recording, not worth building
 
 ## Endgame
 
