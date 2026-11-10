@@ -58,7 +58,7 @@ bash ~/.agents/skills/devledger/scripts/install.sh    # install; re-run anytime 
 **Onboard your repo** (one command; Project name = repo name):
 
 ```bash
-~/devledger/scripts/new-project.sh <owner/repo>
+bash ~/.agents/skills/devledger/scripts/new-project.sh <owner/repo>
 ```
 
 Daily loop: work with your AI as usual → session end auto-records the ledger.
@@ -66,12 +66,38 @@ Acceptance: `python3 scripts/export-timesheet.py --project <N> --customer`.
 
 ## How it works
 
+**Architecture** — repos hold docs, the skill holds actions, Projects hold data; the tool never ships into your delivery repo:
+
+```mermaid
+graph TB
+    subgraph repo["Your repo (one per project)"]
+        issue["issue — the single source of truth"]
+        rules["CLAUDE.md / AGENTS.md accounting rule<br/>+ issue template"]
+    end
+    subgraph skill["devledger skill (this repo, install once)"]
+        entry["SKILL.md — agent decision tree"]
+        actions["scripts/ — onboard · bookkeep · reconcile · export"]
+        refs["assets/ templates + references/ methodology & pitfalls"]
+    end
+    board["GitHub Project ledger<br/>one repo, one Project · issues + 6 fields"]
+    xlsx["Acceptance xlsx (--customer for clients)"]
+
+    actions -- "new-project.sh injects" --> rules
+    actions -- "3-step bookkeeping (gh CLI)" --> issue
+    issue -- "item-add to board" --> board
+    actions -- "reconcile / fill-field" --> board
+    actions -- "export-timesheet" --> xlsx
 ```
-Your repo (docs only: CLAUDE.md accounting rule + issue template)
-   │ detected by scaffold init, or injected via GitHub API
-devledger skill (scripts/ actions · assets/ templates · references/ deep docs)
-   │ gh CLI (GraphQL/REST)
-GitHub Projects (data layer: issues + 6 fields)
+
+**The 3-step bookkeeping** — a hard rule at every AI session end, zero human input:
+
+```mermaid
+flowchart LR
+    s["AI dev session<br/>ships a deliverable"] -->|"① create issue"| i["4-section body: source (client quote) / why<br/>deliverables / verification · hours, label = type"]
+    i -->|"② close + add to board"| b["Project board"]
+    b -->|"③ set 6 fields"| f["type · source · requester<br/>hours · start · end"]
+    f --> v["board / summaries = derived views"]
+    v -. "one command at acceptance" .-> x["client-ready xlsx"]
 ```
 
 Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Works with ZCode, Claude Code, Cursor — any agent that reads SKILL.md/AGENTS.md.
@@ -79,7 +105,7 @@ Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Wor
 ## Documentation
 
 - [SKILL.md](SKILL.md) — agent entry point (decision tree + per-scenario commands)
-- [references/pitfalls.md](references/pitfalls.md) — 9 hard-won gh/GitHub API pitfalls
+- [references/pitfalls.md](references/pitfalls.md) — 10 hard-won gh/GitHub API pitfalls
 - [references/methodology.md](references/methodology.md) — principles, data model, migration patterns
 - [README.zh-CN.md](README.zh-CN.md) — full documentation in Chinese
 
