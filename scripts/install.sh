@@ -15,6 +15,11 @@ if [ "${SRC}" != "${DEST}" ] && [ ! -d "${DEST}/.git" ]; then
 fi
 [ -d "${DEST}/.git" ] || { say "未找到 ${DEST}，请先克隆仓库"; exit 1; }
 
+# 兼容软链：历史文档与已注入项目的正文引用 ~/devledger（标准路径为 ~/.agents/skills/devledger）
+if [ "${DEST}" != "${HOME}/devledger" ] && [ ! -e "${HOME}/devledger" ]; then
+  ln -s "${DEST}" "${HOME}/devledger" 2>/dev/null && say "兼容软链已建：~/devledger → ${DEST}" || true
+fi
+
 # 2) 更新（ff-only；无网/本地改动则跳过，不阻塞自检）
 say "检查更新"
 git -C "${DEST}" pull --ff-only --quiet 2>/dev/null && say "  已是最新" || say "  跳过更新（离线或本地有改动），继续自检"

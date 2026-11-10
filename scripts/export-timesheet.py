@@ -55,7 +55,6 @@ def gh_graphql(query, cursor=None, retries=3):
     """GraphQL 分页读 Project（限流退避见 _common）。"""
     q = query.strip()
     if cursor:
-        q = q.replace("query($cursor: String)", "query($cursor: String)", 1)
         # cursor 经 -f 传参
         rc, out, err = run(["gh", "api", "graphql", "-f", "query=" + q, "-f", f"cursor={cursor}"], retries=retries)
     else:

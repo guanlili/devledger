@@ -71,7 +71,7 @@ Your repo (docs only: CLAUDE.md accounting rule + issue template)
    │ detected by scaffold init, or injected via GitHub API
 devledger skill (scripts/ actions · assets/ templates · references/ deep docs)
    │ gh CLI (GraphQL/REST)
-GitHub Projects (data layer: issues + 5 fields)
+GitHub Projects (data layer: issues + 6 fields)
 ```
 
 Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Works with ZCode, Claude Code, Cursor — any agent that reads SKILL.md/AGENTS.md.

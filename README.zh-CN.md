@@ -17,7 +17,7 @@ devledger 是轻量、符合 [Agent Skills](https://agentskills.io) 规范的 sk
 
 ```
 新项目：脚手架建仓（名含客户名）→ init-project.sh 自动检测并接入 devledger → push → PM 就绪
-日常：  正常开发，AI 会话收尾自动记账三步（issue + 5 字段）
+日常：  正常开发，AI 会话收尾自动记账三步（issue + 6 字段）
 查看：  问 AI「最近干了啥」；验收时一句话出 xlsx
 ```
 
@@ -38,12 +38,12 @@ git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
 |---|---|
 | `SKILL.md` | **Agent 执行入口**：决策树 + 场景命令 |
 | `AGENTS.md` | 跨 Agent（Claude Code/Cursor 等）接口与红线 |
-| `scripts/new-project.sh` | 一键建项：Project（Status 中文化+5字段+View 8列）+ labels + 规范注入 |
+| `scripts/new-project.sh` | 一键建项：Project（Status 中文化+6字段+View 9列）+ labels + 规范注入 |
 | `scripts/export-timesheet.py` | 验收 xlsx（动态列，甲方版 `--customer`） |
 | `scripts/fill-field.py` | 批量字段填充（读回验证内置，幂等重跑） |
 | `scripts/reconcile.py` | 字段对账（读回→diff→补写循环；`--from-labels` 重建） |
 | `scripts/install.sh` | 幂等安装自检 |
-| `references/pitfalls.md` | 9 条实测坑（执行 API 前必读） |
+| `references/pitfalls.md` | 10 条实测坑（执行 API 前必读） |
 | `references/methodology.md` | 方法论：原则/数据模型/原生取舍/历史迁移 |
 | `references/data/*.json` | 各项目账本真值（reconcile 用） |
 
