@@ -20,7 +20,7 @@ metadata:
    │ init-project.sh 检测到本 skill 自动串联，或 new-project.sh API 注入
 devledger skill（本目录：scripts/ 动作，assets/ 模板，references/ 深度资料）
    │ gh CLI（GraphQL/REST）
-GitHub Projects（数据层：issue + 5 字段；一仓库一 Project，名=仓库名）
+GitHub Projects（数据层：issue + 6 字段；一仓库一 Project，名=仓库名）
 ```
 
 ## 使用决策树（Agent 先读这里）
@@ -43,7 +43,7 @@ scripts/new-project.sh <owner/repo> [--local <项目本地路径>]
 # 中断续跑：PM_RESUME=<Project编号> 前缀重跑
 ```
 
-自动完成：Project（名=仓库名，Status 中文化+5字段+View 8列）+ 5 类型 label + 规范注入。验证：`gh project view <编号>` 有 5 个自定义字段。
+自动完成：Project（名=仓库名，Status 中文化+6字段+View 9列）+ 5 类型 label + 规范注入（CLAUDE.md 小节、AGENTS.md 小节、issue 模板）。验证：`gh project view <编号>` 有 6 个自定义字段。
 
 ## 场景 B：日常记账（AI 会话收尾，硬性纪律）
 
@@ -54,7 +54,7 @@ N=<Project编号>; URL=<issue url>
 # ① 建 issue：正文按模板 assets/issue-template.md（来源[含甲方原话]/描述[为什么现在做·否决方案·做了什么]/交付物/验证/工时——决策上下文记录时写全，事后不可补），label=类型 → 关闭 → 入板
 gh issue create -R <owner/repo> --title "<可交付单元>" --body-file <四段正文.md> --label <类型> --assignee @me
 gh issue close <issue号> -R <owner/repo> && gh project item-add ${N} --owner "@me" --url "${URL}"
-# ② 设 5 字段
+# ② 设 6 字段
 for fv in "类型:需求" "来源:甲方" "需求人:张三" "工时(h):8" "开始:YYYY-MM-DD" "结束:YYYY-MM-DD" "Status:已完成"; do
   gh project item-edit ${N} --owner "@me" --url "${URL}" --field "${fv%%:*}" --value "${fv#*:}"; done
 ```
@@ -72,7 +72,7 @@ python3 scripts/fill-field.py --project <N> --field <字段> --value <值> [--wh
 
 ## 执行前必读
 
-- **[references/pitfalls.md](references/pitfalls.md)——9 条实测坑**（编码/限流/字段 API 行为/bash 兼容），执行任何 gh API 操作前先读
+- **[references/pitfalls.md](references/pitfalls.md)——10 条实测坑**（编码/限流/字段 API 行为/bash 兼容），执行任何 gh API 操作前先读
 - 深度背景：[references/methodology.md](references/methodology.md)（原则/数据模型/原生取舍/历史迁移模式）
 - 各项目账本真值：本地 `~/devledger-private/data/*.json`（含客户信息不入库；仓库内 example-ledger.json 为格式示例）
 
@@ -82,6 +82,8 @@ python3 scripts/fill-field.py --project <N> --field <字段> --value <值> [--wh
 git clone git@github.com:guanlili/devledger.git ~/.agents/skills/devledger
 bash ~/.agents/skills/devledger/scripts/install.sh   # 幂等自检：就位/gh/权限/openpyxl
 ```
+
+**批量接入多个仓库**：逐仓库跑 `new-project.sh <owner/repo>`（每仓库一次）；已接入仓库重跑安全（幂等，仅补差异）。
 
 **安装/更新/自检同一条命令**（幂等）：`bash ~/.agents/skills/devledger/scripts/install.sh`——未就位则 HTTPS 克隆；重跑即更新（ff pull + 版本显示 + gh 权限自检）。
 

@@ -3,7 +3,10 @@
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); versioning: SemVer.
 
 ## [Unreleased]
+### Added
+- `new-project.sh` 注入 AGENTS.md 小节（Codex 等读 AGENTS.md 的工具入口；与 CLAUDE.md 共用 `merge_section` 小节级幂等合并）；`install.sh` 建兼容软链 `~/devledger`；模板路径统一为标准安装路径 `~/.agents/skills/devledger`（他人机器引用不再断裂）
 ### Docs
+- SKILL.md/README 中英同步 6 字段/View 9 列/10 坑口径；补批量接入多仓库说明；example-ledger 补需求人；`.gitignore`；export 清理死代码
 - 坑3 补次级限流实测细节（触发阈值/冷却期 GraphQL 读写全封/重试续窗口/REST 可用/批量写策略）——2026-11-09 回填实战沉淀
 ### Fixed
 - `new-project.sh`: 重跑幂等三连修——mkfield 去重改走 `gql()` 带重试直查（次级限流时查询失败≠字段不存在，绝不落入创建分支 + id 形状校验）；CLAUDE.md 注入幂等标记改用小节标题（v1.2.1 模板正文无 URL，旧标记失效会重复追加小节）；`put_file` 一致性判断改整串相等（子串包含会把「去重后的新内容是旧文件前缀」误判为已存在）

@@ -140,7 +140,7 @@ done
 if [ -n "${LOCAL_DIR}" ]; then
   say "本地模式：替换 ${LOCAL_DIR} 中的 __PM_PROJECT__ 占位符"
   CHANGED=0
-  for f in "${LOCAL_DIR}/CLAUDE.md" "${LOCAL_DIR}/.github/ISSUE_TEMPLATE/需求.md"; do
+  for f in "${LOCAL_DIR}/CLAUDE.md" "${LOCAL_DIR}/AGENTS.md" "${LOCAL_DIR}/.github/ISSUE_TEMPLATE/需求.md"; do
     if [ -f "${f}" ] && grep -q "__PM_PROJECT__" "${f}"; then
       sed -i '' "s/__PM_PROJECT__/${PJ_NUM}/g" "${f}"
       CHANGED=$((CHANGED+1))
@@ -148,14 +148,14 @@ if [ -n "${LOCAL_DIR}" ]; then
     fi
   done
   if [ "${CHANGED}" -gt 0 ]; then
-    git -C "${LOCAL_DIR}" add CLAUDE.md .github/ISSUE_TEMPLATE/需求.md 2>/dev/null
+    git -C "${LOCAL_DIR}" add CLAUDE.md AGENTS.md .github/ISSUE_TEMPLATE/需求.md 2>/dev/null
     git -C "${LOCAL_DIR}" commit -q -m "chore: devledger 项目管理激活（Project #${PJ_NUM}）" 2>/dev/null
     say "  已本地提交（请自行 push）"
   else
     say "  WARN 未找到占位符（非脚手架项目？改用 API 注入模式重跑不带 --local）"
   fi
 else
-say "注入记账规范到仓库（CLAUDE.md + issue 模板）"
+say "注入记账规范到仓库（CLAUDE.md + AGENTS.md + issue 模板）"
 PM_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="${REPO}" PJ_NUM="${PJ_NUM}" PJ_URL="${PJ_URL}" PJ_TITLE="${TITLE}" PM_DIR="${PM_DIR}" python3 - <<'PYEOF'
 import base64, json, os, subprocess, sys, urllib.parse
@@ -164,8 +164,9 @@ repo, num, url, title, pmdir = (os.environ[k] for k in ("REPO", "PJ_NUM", "PJ_UR
 section = open(f"{pmdir}/assets/claude-section.template.md", encoding="utf-8").read()
 # 占位符双保险：新版 __PM_PROJECT__ 与旧版 {PJ_*} 都替换（坑7教训：注入后 grep 验证）
 section = section.replace("__PM_PROJECT__", num).replace("{PJ_TITLE}", title).replace("{PJ_URL}", url).replace("{PJ_NUM}", num)
+agents_tpl = open(f"{pmdir}/assets/agents-section.template.md", encoding="utf-8").read().replace("__PM_PROJECT__", num)
 issue_tpl = open(f"{pmdir}/assets/issue-template.md", encoding="utf-8").read().replace("__PM_PROJECT__", num).replace("{PJ_NUM}", num)
-assert "__PM_PROJECT__" not in section and "__PM_PROJECT__" not in issue_tpl, "占位符未替换干净"
+assert "__PM_PROJECT__" not in section and "__PM_PROJECT__" not in issue_tpl and "__PM_PROJECT__" not in agents_tpl, "占位符未替换干净"
 
 def api(path, method="GET", fields=None):
     cmd = ["gh", "api", path]
@@ -196,31 +197,45 @@ def put_file(path_in_repo, content, message):
     else:
         print(f"  已写入: {path_in_repo}")
 
-# CLAUDE.md：幂等标记=小节标题（v1.2.1 起模板正文不含 Project URL，勿用 url 判断——
-# 否则重跑会重复追加小节）；已注入则替换到下一个顶级标题（保留小节之后用户追加的内容），
-# 未注入则追加到文件尾
-marker = "## 项目管理（devledger"
-enc = "CLAUDE.md"
-code, out, _ = api(f"repos/{repo}/contents/{enc}")
-if code == 0:
-    old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
-    sha = json.loads(out)["sha"]
+# 小节幂等合并：标记已注入→替换到下一顶级标题（保留其后内容）；未注入→追加；返回 None=无需写
+def merge_section(old, sec, marker):
     idx = old.find(marker)
     tail = ""
     if idx >= 0:
         nxt = old.find("\n## ", idx + len(marker))
         if nxt >= 0:
-            tail = old[nxt:].lstrip("\n")   # 小节后的后续内容，原样保留
+            tail = old[nxt:].lstrip("\n")
             old = old[:nxt]
-        if old[idx:].strip() == section.strip() and not tail:
-            print("  CLAUDE.md 小节已是最新，跳过")
-            tail = None
-    if tail is not None:
-        base = old[:idx].rstrip() if idx >= 0 else old.rstrip()
-        merged = base + "\n\n" + section + ("\n" + tail if tail else "\n")
+        if old[idx:].strip() == sec.strip() and not tail:
+            return None
+    base = old[:idx].rstrip() if idx >= 0 else old.rstrip()
+    return base + ("\n\n" if base else "") + sec + ("\n" + tail if tail else "\n")
+
+# CLAUDE.md（幂等标记=小节标题；v1.2.1 起模板正文不含 URL，勿用 url 判断——否则重跑重复追加）
+marker = "## 项目管理（devledger"
+code, out, _ = api(f"repos/{repo}/contents/CLAUDE.md")
+if code == 0:
+    old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
+    merged = merge_section(old, section, marker)
+    if merged is None:
+        print("  CLAUDE.md 小节已是最新，跳过")
+    else:
         put_file("CLAUDE.md", merged, f"chore: 项目管理规范化——CLAUDE.md 记账规范注入/升级（Project #{num}）")
 else:
     put_file("CLAUDE.md", section + "\n", f"chore: 新建 CLAUDE.md——项目管理记账规范（Project #{num}）")
+
+# AGENTS.md（Codex 等读 AGENTS.md 的工具入口；同款幂等合并，文件不存在则带标题新建）
+amarker = "## 项目管理记账（devledger"
+code, out, _ = api(f"repos/{repo}/contents/AGENTS.md")
+if code == 0:
+    old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
+    merged = merge_section(old, agents_tpl, amarker)
+    if merged is None:
+        print("  AGENTS.md 小节已是最新，跳过")
+    else:
+        put_file("AGENTS.md", merged, f"chore: AGENTS.md 记账纪律注入/升级（Project #{num}）")
+else:
+    put_file("AGENTS.md", "# AGENTS.md\n\n" + agents_tpl + "\n", f"chore: 新建 AGENTS.md——跨 AI 工具记账纪律（Project #{num}）")
 
 put_file(".github/ISSUE_TEMPLATE/需求.md", issue_tpl, f"chore: 项目管理 issue 模板（Project #{num}）")
 PYEOF
@@ -230,6 +245,6 @@ cat <<EOF
 
 ✅ 建项完成（规范已自动注入仓库）
    Project: #${PJ_NUM}  ${PJ_URL}
-   规范注入：${LOCAL_DIR:+本地占位符已替换并提交（--local 模式）}${LOCAL_DIR:-API 已写入 CLAUDE.md 小节与 issue 模板}
+   规范注入：${LOCAL_DIR:+本地占位符已替换并提交（--local 模式）}${LOCAL_DIR:-API 已写入 CLAUDE.md + AGENTS.md 小节与 issue 模板}
    验收导出: python3 ~/devledger/export-timesheet.py --project ${PJ_NUM}
 EOF
