@@ -8,18 +8,45 @@
 
 **研发管理的自动账本。** 没记账的工作等于没做。
 
-devledger 是轻量、符合 [Agent Skills](https://agentskills.io) 规范的 skill：AI 开发会话收尾时，自动把需求、缺陷与工时记进 GitHub Projects 形成账本；验收时一条命令导出交付级汇总表。
-
-
-把 AI 开发会话自动转化为 **issue + 工时账本**（GitHub Projects）。符合 [Agent Skills 规范](https://agentskills.io/specification)：`SKILL.md` 为 Agent 执行入口（渐进披露），坑清单与方法论在 `references/`，动作脚本在 `scripts/`，模板在 `assets/`。
+devledger 是轻量、符合 [Agent Skills](https://agentskills.io) 规范的 skill：AI 开发会话收尾时，自动把需求、缺陷与工时记进 GitHub Projects 形成账本；验收时一条命令导出交付级汇总表。`SKILL.md` 为 Agent 执行入口（渐进披露），坑清单与方法论在 `references/`，动作脚本在 `scripts/`，模板在 `assets/`。
 
 ## 流程总览
 
+**架构**——仓库管文档、skill 管动作、Project 管数据；工具永远不进交付仓库：
+
+```mermaid
+graph TB
+    subgraph repo["交付仓库（每项目一个）"]
+        issue["issue · 唯一真相源"]
+        rules["CLAUDE.md / AGENTS.md 记账纪律<br/>+ issue 模板"]
+    end
+    subgraph skill["devledger skill（本仓库，装一次）"]
+        entry["SKILL.md · Agent 决策树"]
+        actions["scripts/ · 建项 / 记账 / 对账 / 导出"]
+        refs["assets/ 模板 + references/ 方法论与坑"]
+    end
+    board["GitHub Project 账本<br/>一仓库一 Project · issue + 6 字段"]
+    xlsx["验收 xlsx（--customer 甲方版）"]
+
+    actions -- "new-project.sh 注入" --> rules
+    actions -- "记账三步（gh CLI）" --> issue
+    issue -- "item-add 入板" --> board
+    actions -- "reconcile / fill-field 对账" --> board
+    actions -- "export-timesheet 导出" --> xlsx
 ```
-新项目：脚手架建仓（名含客户名）→ init-project.sh 自动检测并接入 devledger → push → PM 就绪
-日常：  正常开发，AI 会话收尾自动记账三步（issue + 6 字段）
-查看：  问 AI「最近干了啥」；验收时一句话出 xlsx
+
+**记账三步**——AI 会话收尾的硬性纪律，人零输入：
+
+```mermaid
+flowchart LR
+    s["AI 开发会话<br/>交付可交付单元"] -->|"① 建 issue"| i["四段正文：来源(含甲方原话)/描述<br/>交付物/验证·工时，label=类型"]
+    i -->|"② 关闭 + 入板"| b["Project 看板"]
+    b -->|"③ 设 6 字段"| f["类型 · 来源 · 需求人<br/>工时(h) · 开始 · 结束"]
+    f --> v["看板 / 汇总 = 派生视图"]
+    v -. "验收时一条命令" .-> x["交付级 xlsx"]
 ```
+
+一句话：新项目一条命令接入 → 日常 AI 收尾自动记账 → 验收一句话出表。
 
 ## 快速上手
 
@@ -29,7 +56,7 @@ bash ~/.agents/skills/devledger/scripts/demo.sh
 # ② 安装（HTTPS 免 SSH key）
 git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
 # ③ 接入你的仓库（一条命令）
-~/devledger/scripts/new-project.sh <owner/repo>
+bash ~/.agents/skills/devledger/scripts/new-project.sh <owner/repo>
 ```
 
 **更新 = 重跑安装命令**：`bash ~/.agents/skills/devledger/scripts/install.sh`（同一条命令完成 安装/更新/自检，坏了随时重跑）
