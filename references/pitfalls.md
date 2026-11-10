@@ -1,4 +1,4 @@
-# 坑速查（9 条，全部实测 2026-11）
+# 坑速查（10 条，全部实测 2026-11）
 
 执行 gh / GitHub API 操作前必读；详细背景见 methodology.md。
 
@@ -15,3 +15,4 @@
 7. **读回验证**：批量写以 GraphQL 读回为准（item-edit 会静默失败；item-add 有读回延迟）；对账模式=读回→diff→补写→循环到干净（reconcile.py）
 8. **bash 3.2（macOS）**：无关联数组；`$VAR` 一律写 `${VAR}` 且不紧跟中文字符
 9. **代理**：终端访问 github.com 网页域（OAuth/push）超时 → 配置 `HTTPS_PROXY` 指向本地代理；api.github.com 通常可直连
+10. **GraphQL 手写单行查询会丢右括号**：报错 `Expected NAME, actual: (none)` 且列号=查询末尾 = 少一个 `}`（不是服务端故障）→ 一律多行书写并数平括号。（实测更正：`--value` 通吃所有字段类型含 TEXT，`--text`/`--number`/`--date` 是别名——以读回验证为准，勿轻信文档包括本文件）

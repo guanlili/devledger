@@ -4,7 +4,7 @@ description: 轻量级 GitHub 项目管理 skill——把 AI 开发会话自动�
 license: MIT
 compatibility: 需 gh CLI（scopes 含 project, read:project）、git、bash 3.2+；导出需 python3 + openpyxl；macOS/Linux。
 metadata:
-  version: "1.2.1"
+  version: "1.3.0"
   author: guanlili
   homepage: https://github.com/guanlili/devledger
 ---
@@ -67,6 +67,7 @@ for fv in "类型:需求" "来源:甲方" "需求人:张三" "工时(h):8" "开�
 ```bash
 python3 scripts/reconcile.py --project <N> --repo <owner/repo> --dry-run   # C1 进度+体检
 python3 scripts/export-timesheet.py --project <N> [--round 轮次] [--customer] [-o xlsx]  # C2 验收表
+python3 scripts/fill-field.py --project <N> --field <字段> --value <值> [--where 来源=甲方] [--dry-run]  # C3 批量填字段（读回验证内置，幂等重跑）
 ```
 
 ## 执行前必读
