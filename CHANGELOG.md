@@ -3,6 +3,8 @@
 All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); versioning: SemVer.
 
 ## [Unreleased]
+
+## [1.4.0] - 2026-11-10
 ### Fixed
 - `new-project.sh`: 坑6 升级地雷——Status 选项已一致时跳过 `updateProjectV2Field` 重交（实测重交会清空全部条目已选值,升级有数据的仓库必踩；沙盒复现验证）
 ### Added
