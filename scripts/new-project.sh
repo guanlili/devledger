@@ -1,25 +1,17 @@
 #!/usr/bin/env bash
 # 通用 GitHub 项目管理一键建项：建 Project + 6 字段 + Status 中文化 + View 1 配列 + 仓库类型 labels
-# 用法: new-project.sh <owner/repo> [--local <项目路径>] [--client-contact <甲方对接人>]
-#       Project 名=仓库名（客户名含在仓库名里，零额外输入）
-# 例:   new-project.sh yourorg/any-repo --client-contact 易雨涵
+# 用法: new-project.sh <owner/repo>   → Project 名=仓库名（客户名含在仓库名里，零额外输入）
+# 例:   new-project.sh yourorg/any-repo        → Project 名 = any-repo
 # 兼容 macOS 自带 bash 3.2：无关联数组；变量一律 ${VAR} 花括号；$VAR 不紧跟多字节字符
 set -euo pipefail
 
 REPO="${1:-}"
 LOCAL_DIR=""
-CONTACT=""
-_args=("${@:2}")
-_i=0
-while [ "${_i}" -lt "${#_args[@]}" ]; do
-  case "${_args[${_i}]}" in
-    --local)          LOCAL_DIR="${_args[$((_i+1))]:-$(pwd)}"; _i=$((_i+2)) ;;
-    --client-contact) CONTACT="${_args[$((_i+1))]:-}";         _i=$((_i+2)) ;;
-    *)                _i=$((_i+1)) ;;
-  esac
-done
+if [ "${2:-}" = "--local" ]; then
+  LOCAL_DIR="${3:-$(pwd)}"
+fi
 if [ -z "${REPO}" ]; then
-  echo "用法: new-project.sh <owner/repo> [--local <项目路径>] [--client-contact <甲方对接人>]   Project 名=仓库名（客户名请含在仓库名里）" >&2
+  echo "用法: new-project.sh <owner/repo> [--local <项目路径>]   Project 名=仓库名（客户名请含在仓库名里）" >&2
   exit 1
 fi
 REPO_NAME="${REPO##*/}"
@@ -254,58 +246,6 @@ else:
 
 put_file(".github/ISSUE_TEMPLATE/需求.md", issue_tpl, f"chore: 项目管理 issue 模板（Project #{num}）")
 PYEOF
-fi
-
-# ---------- 7. 甲方对接人登记（--client-contact；真相源=本地私有索引，派生=AGENTS.md 指引行） ----------
-if [ -n "${CONTACT}" ]; then
-  say "登记甲方对接人：${CONTACT}（projects.json + AGENTS.md）"
-  REPO="${REPO}" PJ_NUM="${PJ_NUM}" CONTACT="${CONTACT}" LOCAL_DIR="${LOCAL_DIR}" python3 - <<'CEOF'
-import json, os, subprocess, base64, urllib.parse
-
-repo, num, contact, local_dir = (os.environ[k] for k in ("REPO", "PJ_NUM", "CONTACT", "LOCAL_DIR"))
-key = repo.split("/")[-1]
-line = f"本项目甲方对接人：**{contact}**（需求提出与验收）——记账时甲方来源的 issue「需求人」字段填 {contact}。"
-
-# ① 真相源：~/devledger-private/data/projects.json upsert（客户信息不入公开仓库）
-priv = os.path.expanduser("~/devledger-private/data")
-os.makedirs(priv, exist_ok=True)
-idx_path = f"{priv}/projects.json"
-try:
-    idx = json.load(open(idx_path, encoding="utf-8"))
-    idx.pop("_comment", None)
-except Exception:
-    idx = {}
-entry = idx.get(key) or {}
-entry.update({"repo": repo, "project_number": int(num), "client_contact": contact})
-idx[key] = entry
-json.dump(idx, open(idx_path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-print(f"  projects.json 已登记: {key} → {contact}")
-
-# ② 派生：AGENTS.md 末尾追加指引行（幂等：已含对接人行则跳过）
-if local_dir:
-    path = f"{local_dir}/AGENTS.md"
-    old = open(path, encoding="utf-8").read() if os.path.exists(path) else "# AGENTS.md\n"
-    if contact in old:
-        print("  AGENTS.md 已含对接人，跳过")
-    else:
-        open(path, "w", encoding="utf-8").write(old.rstrip() + "\n\n" + line + "\n")
-        print("  AGENTS.md 已追加对接人行")
-else:
-    enc = urllib.parse.quote("AGENTS.md")
-    r = subprocess.run(["gh", "api", f"repos/{repo}/contents/{enc}"], capture_output=True, text=True)
-    if r.returncode == 0:
-        old = base64.b64decode(json.loads(r.stdout)["content"]).decode("utf-8", "ignore")
-        if contact in old:
-            print("  AGENTS.md 已含对接人，跳过"); raise SystemExit
-        content, msg = old.rstrip() + "\n\n" + line + "\n", f"chore: 甲方对接人登记——{contact}（Project #{num}）"
-        fields = {"message": msg, "content": base64.b64encode(content.encode()).decode(), "sha": json.loads(r.stdout)["sha"]}
-    else:
-        content, msg = "# AGENTS.md\n\n" + line + "\n", f"chore: 新建 AGENTS.md——甲方对接人登记 {contact}（Project #{num}）"
-        fields = {"message": msg, "content": base64.b64encode(content.encode()).decode()}
-    r2 = subprocess.run(["gh", "api", f"repos/{repo}/contents/{enc}", "-X", "PUT"]
-                        + sum([["-f", f"{k}={v}"] for k, v in fields.items()], []), capture_output=True, text=True)
-    print("  AGENTS.md 已写入" if r2.returncode == 0 else f"  WARN AGENTS.md 写入失败: {r2.stderr[:150]}")
-CEOF
 fi
 
 cat <<EOF
