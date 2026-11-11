@@ -4,7 +4,7 @@ description: 轻量级 GitHub 项目管理 skill——把 AI 开发会话自动�
 license: MIT
 compatibility: 需 gh CLI（scopes 含 project, read:project）、git、bash 3.2+；导出需 python3 + openpyxl；macOS/Linux。
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   author: guanlili
   homepage: https://github.com/guanlili/devledger
 ---
@@ -38,8 +38,10 @@ GitHub Projects（数据层：issue + 6 字段；一仓库一 Project，名=仓�
 ## 场景 A：新仓库接入（每仓库一次）
 
 ```bash
-scripts/new-project.sh <owner/repo> [--local <项目本地路径>]
+scripts/new-project.sh <owner/repo> [--local <项目本地路径>] [--client-contact <甲方对接人>]
 # 脚手架项目（本地已克隆）加 --local：替换占位符并本地提交；存量仓库走 API 注入
+# 外包项目加 --client-contact <对接人>：登记到 ~/devledger-private/data/projects.json（真相源），
+#   并在仓库 AGENTS.md 追加「需求人字段填 <对接人>」指引（幂等）；对接人属客户信息，不进公开层以外的文件
 # 中断续跑：PM_RESUME=<Project编号> 前缀重跑
 ```
 
@@ -75,6 +77,7 @@ python3 scripts/fill-field.py --project <N> --field <字段> --value <值> [--wh
 - **[references/pitfalls.md](references/pitfalls.md)——10 条实测坑**（编码/限流/字段 API 行为/bash 兼容），执行任何 gh API 操作前先读
 - 深度背景：[references/methodology.md](references/methodology.md)（原则/数据模型/原生取舍/历史迁移模式）
 - 各项目账本真值：本地 `~/devledger-private/data/*.json`（含客户信息不入库；仓库内 example-ledger.json 为格式示例）
+- 跨项目元数据索引：`~/devledger-private/data/projects.json`（对接人/repo/Project 编号/平台地址等，真相源；`--client-contact` 自动维护；各仓库 README「项目信息」与 AGENTS.md 需求人指引均为其派生视图）
 
 ## 安装与他人一句话接入
 
