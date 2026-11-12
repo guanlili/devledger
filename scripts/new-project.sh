@@ -184,25 +184,35 @@ def api(path, method="GET", fields=None):
     import time as _t
     for attempt in range(4):
         r = subprocess.run(cmd, capture_output=True, text=True)
-        if r.returncode == 0 or "404" in r.stderr or "NOT_FOUND" in r.stderr:
-            return r.returncode, r.stdout, r.stderr  # 成功或确定不存在，直接返回
+        if r.returncode == 0 or any(f"HTTP {status}" in r.stderr for status in (404, 409, 422)):
+            return r.returncode, r.stdout, r.stderr
         _t.sleep(10 * (attempt + 1))  # 网络抖动重试
     return r.returncode, r.stdout, r.stderr
 
-def put_file(path_in_repo, content, message):
+def read_file(path_in_repo):
     enc = urllib.parse.quote(path_in_repo)
     code, out, err = api(f"repos/{repo}/contents/{enc}")
-    fields = {"message": message, "content": base64.b64encode(content.encode()).decode()}
     if code == 0:
-        fields["sha"] = json.loads(out)["sha"]
-        if content.strip() == base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore").strip():
-            print(f"  已存在且内容一致，跳过: {path_in_repo}")
-            return
-    code, out, err = api(f"repos/{repo}/contents/{enc}", "PUT", fields)
+        data = json.loads(out)
+        return base64.b64decode(data["content"]).decode("utf-8"), data["sha"]
+    if "HTTP 404" in err:
+        return "", None
+    raise SystemExit(f"读取失败 {path_in_repo}: {err.strip()}")
+
+
+def put_file(path_in_repo, content, message, old, sha):
+    if sha and content.strip() == old.strip():
+        print(f"  已存在且内容一致，跳过: {path_in_repo}")
+        return
+    enc = urllib.parse.quote(path_in_repo)
+    fields = {"message": message, "content": base64.b64encode(content.encode()).decode()}
+    if sha:
+        fields["sha"] = sha
+    code, _, err = api(f"repos/{repo}/contents/{enc}", "PUT", fields)
     if code != 0:
-        print(f"  WARN 写入失败 {path_in_repo}: {err.strip()[:200]}")
-    else:
-        print(f"  已写入: {path_in_repo}")
+        raise SystemExit(f"写入失败 {path_in_repo}: {err.strip()}")
+    print(f"  已写入: {path_in_repo}")
+
 
 # 小节幂等合并：标记已注入→替换到下一顶级标题（保留其后内容）；未注入→追加；返回 None=无需写
 def merge_section(old, sec, marker):
@@ -218,33 +228,24 @@ def merge_section(old, sec, marker):
     base = old[:idx].rstrip() if idx >= 0 else old.rstrip()
     return base + ("\n\n" if base else "") + sec + ("\n" + tail if tail else "\n")
 
-# CLAUDE.md（幂等标记=小节标题；v1.2.1 起模板正文不含 URL，勿用 url 判断——否则重跑重复追加）
+# 用同一次读取的内容和 SHA 合并，避免覆盖并发编辑。
 marker = "## 项目管理（devledger"
-code, out, _ = api(f"repos/{repo}/contents/CLAUDE.md")
-if code == 0:
-    old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
-    merged = merge_section(old, section, marker)
-    if merged is None:
-        print("  CLAUDE.md 小节已是最新，跳过")
-    else:
-        put_file("CLAUDE.md", merged, f"chore: 项目管理规范化——CLAUDE.md 记账规范注入/升级（Project #{num}）")
-else:
-    put_file("CLAUDE.md", section + "\n", f"chore: 新建 CLAUDE.md——项目管理记账规范（Project #{num}）")
-
-# AGENTS.md（Codex 等读 AGENTS.md 的工具入口；同款幂等合并，文件不存在则带标题新建）
 amarker = "## 项目管理记账（devledger"
-code, out, _ = api(f"repos/{repo}/contents/AGENTS.md")
-if code == 0:
-    old = base64.b64decode(json.loads(out)["content"]).decode("utf-8", "ignore")
-    merged = merge_section(old, agents_tpl, amarker)
+for path, template, section_marker in (
+    ("CLAUDE.md", section, marker),
+    ("AGENTS.md", agents_tpl, amarker),
+):
+    old, sha = read_file(path)
+    base = "# AGENTS.md\n" if path == "AGENTS.md" and sha is None else old
+    merged = merge_section(base, template, section_marker)
     if merged is None:
-        print("  AGENTS.md 小节已是最新，跳过")
+        print(f"  {path} 小节已是最新，跳过")
     else:
-        put_file("AGENTS.md", merged, f"chore: AGENTS.md 记账纪律注入/升级（Project #{num}）")
-else:
-    put_file("AGENTS.md", "# AGENTS.md\n\n" + agents_tpl + "\n", f"chore: 新建 AGENTS.md——跨 AI 工具记账纪律（Project #{num}）")
+        put_file(path, merged, f"chore: {path} 记账规范（Project #{num}）", old, sha)
 
-put_file(".github/ISSUE_TEMPLATE/需求.md", issue_tpl, f"chore: 项目管理 issue 模板（Project #{num}）")
+path = ".github/ISSUE_TEMPLATE/需求.md"
+old, sha = read_file(path)
+put_file(path, issue_tpl, f"chore: 项目管理 issue 模板（Project #{num}）", old, sha)
 PYEOF
 fi
 
