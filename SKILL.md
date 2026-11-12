@@ -4,7 +4,7 @@ description: 轻量级 GitHub 项目管理 skill——把 AI 开发会话自动�
 license: MIT
 compatibility: 需 gh CLI（scopes 含 project, read:project）、git、bash 3.2+；导出需 python3 + openpyxl；macOS/Linux。
 metadata:
-  version: "1.4.0"
+  version: "1.5.0"
   author: guanlili
   homepage: https://github.com/guanlili/devledger
 ---

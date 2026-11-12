@@ -4,6 +4,23 @@ All notable changes. Format: [Keep a Changelog](https://keepachangelog.com/); ve
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-12
+
+### Added
+
+- 日常记账新增 `bookkeep.py`，用已有 issue URL 入板、补字段并读回，确认后关闭。中断可用同一 URL 续跑（#29）。
+
+### Fixed
+
+- 对账按 issue 编号定位，旧账本仅在标题唯一时匹配。批量填字段遍历全部分页，写入后读回核验（#27）。
+- 接入优先复用仓库登记的 Project 编号，保留已有 Status 和视图。本地模板激活支持 Linux 和 macOS，文件注入使用读取时的 SHA 防止覆盖并发编辑（#27、#31）。
+- 验收表单列未填工时，区分空值与 0h。GitHub 文本以纯文本写入 Excel（#31）。
+- GitHub 读取按响应头退避。批量写入结果不确定时停止，重跑先读回再补差异（#31）。
+
+### Documentation
+
+- 同步中英文快速上手、接入、续跑和导出说明，更新新版 `gh` 的字段寻址及限流重试指引（#25、#26、#31）。
+
 ## [1.4.0] - 2026-11-10
 ### Fixed
 - `new-project.sh`: 坑6 升级地雷——Status 选项已一致时跳过 `updateProjectV2Field` 重交（实测重交会清空全部条目已选值,升级有数据的仓库必踩；沙盒复现验证）
