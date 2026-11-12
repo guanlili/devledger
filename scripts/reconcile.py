@@ -158,15 +158,14 @@ def main():
             sys.exit(f"RECONCILE INCOMPLETE：读回仍有 {drift} 处差异")
         for url, label, changes in todo:
             if url not in current:
-                rc, _, err = run(["gh", "project", "item-add", str(args.project), "--owner", "@me", "--url", url], pace=2)
+                rc, _, err = run(["gh", "project", "item-add", str(args.project), "--owner", "@me", "--url", url], retries=1, pace=2)
                 if rc != 0:
-                    print(f"  FAIL 入板 {label}: {err}", flush=True)
-                    continue
+                    sys.exit(f"入板未确认 {label}: {err}。请稍后重跑。")
             for field, value in changes.items():
                 rc, _, err = run(["gh", "project", "item-edit", str(args.project), "--owner", "@me",
-                                  "--url", url, "--field", field, "--value", str(value)], pace=2)
+                                  "--url", url, "--field", field, "--value", str(value)], retries=1, pace=2)
                 if rc != 0:
-                    print(f"  FAIL {label} {field}={value}: {err}", flush=True)
+                    sys.exit(f"写入未确认 {label} {field}: {err}。请稍后重跑。")
         time.sleep(30)
 
 

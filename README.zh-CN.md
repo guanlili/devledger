@@ -50,22 +50,39 @@ flowchart LR
 
 ## 快速上手
 
+**安装与自检**
+
 ```bash
-# ① 2 分钟看效果（自动建沙盒→接入→记 2 条账→导出验收表，无需 AI 和真实仓库）
-bash ~/.agents/skills/devledger/scripts/demo.sh
-# ② 安装（HTTPS 免 SSH key）
 git clone https://github.com/guanlili/devledger.git ~/.agents/skills/devledger
-# ③ 接入你的仓库（一条命令）
-bash ~/.agents/skills/devledger/scripts/new-project.sh <owner/repo>
+bash ~/.agents/skills/devledger/scripts/install.sh
 ```
 
-**更新 = 重跑安装命令**：`bash ~/.agents/skills/devledger/scripts/install.sh`（同一条命令完成 安装/更新/自检，坏了随时重跑）
+更新时重跑 `install.sh`。想先体验，可以运行 `bash ~/.agents/skills/devledger/scripts/demo.sh`，创建私有沙盒仓库、Project 和示例验收表。接入需要有 Project 权限的 `gh`、Git、Bash 3.2+、Python 3 和 `jq`，导出另需 `openpyxl`。
+
+**接入仓库**
+
+```bash
+bash ~/.agents/skills/devledger/scripts/new-project.sh YOUR_OWNER/YOUR_REPO
+```
+
+重复接入会复用仓库登记的 Project 编号，并保留已有 Status 选项和视图。如果仓库尚未登记编号，但已有同名 Project，核对后用 `PM_RESUME=<编号>` 重跑。
+
+**记账与验收**
+
+Agent 在会话收尾时创建或复用 issue，再运行 [`bookkeep.py`](scripts/bookkeep.py)。命令读回看板字段，确认后关闭 issue。中断时用同一 issue URL 和相同参数续跑，命令示例见 [SKILL.md 的场景 B](SKILL.md)。
+
+```bash
+python3 ~/.agents/skills/devledger/scripts/export-timesheet.py --project 123 --customer
+```
+
+把 `123` 换成实际 Project 编号。`--customer` 仅导出甲方来源条目。有未填工时的条目时，验收表会列出对应 issue，并注明合计只包含已填工时。
 
 | 路径 | 用途 |
 |---|---|
 | `SKILL.md` | **Agent 执行入口**：决策树 + 场景命令 |
 | `AGENTS.md` | 跨 Agent（Claude Code/Cursor 等）接口与红线 |
-| `scripts/new-project.sh` | 一键建项：Project（Status 中文化+6字段+View 9列）+ labels + 规范注入 |
+| `scripts/new-project.sh` | 建项或接入已有 Project，补齐字段、标签和仓库规范 |
+| `scripts/bookkeep.py` | 按 issue URL 入板、补字段并读回确认，支持续跑 |
 | `scripts/export-timesheet.py` | 验收 xlsx（动态列，甲方版 `--customer`） |
 | `scripts/fill-field.py` | 批量字段填充（读回验证内置，幂等重跑） |
 | `scripts/reconcile.py` | 字段对账（读回→diff→补写循环；`--from-labels` 重建） |
@@ -102,7 +119,7 @@ devledger 面向正在成型的全新协作形态：**一个技术负责人 + �
 
 ## 他人一句话接入
 
-对其 AI 说：「克隆 guanlili/devledger 到 ~/.agents/skills/devledger，跑 install.sh，按 SKILL.md 给我的仓库 <owner/repo> 接入项目管理」。管理员需先：加 devledger 仓库协作者 + 确认目标仓库写权限。
+对其 AI 说：「克隆 guanlili/devledger 到 ~/.agents/skills/devledger，跑 install.sh，按 SKILL.md 给我的仓库 <owner/repo> 接入项目管理」。接入者需要目标仓库和目标 Project 的写权限。
 
 ## 支持
 

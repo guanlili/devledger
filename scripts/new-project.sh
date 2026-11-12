@@ -14,6 +14,10 @@ if [ -z "${REPO}" ]; then
   echo "用法: new-project.sh <owner/repo> [--local <项目路径>]   Project 名=仓库名（客户名请含在仓库名里）" >&2
   exit 1
 fi
+for dep in gh jq python3; do
+  command -v "${dep}" >/dev/null 2>&1 || { echo "缺少接入依赖：${dep}" >&2; exit 1; }
+done
+PM_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_NAME="${REPO##*/}"
 TITLE="${REPO_NAME}"
 PACE=2   # 写操作间隔秒数，防次级限流
@@ -26,6 +30,12 @@ gql() { # gql '<query>' [额外gh参数...] → stdout 透传 gh 输出；失败
   for attempt in 1 2 3 4; do
     if out=$(gh api graphql -f query="${q}" "$@" 2>"${errf}"); then
       printf '%s' "${out}"; rm -f "${errf}"; return 0
+    fi
+    case "${q}" in
+      mutation*) break ;;
+    esac
+    if [ "${attempt}" -eq 4 ] || grep -Eqi 'HTTP (400|401|403|404|422)|rate limit|forbidden|permission' "${errf}"; then
+      break
     fi
     say "  graphql 失败(第${attempt}次)，重试..."
     sleep $((attempt * 15))
@@ -60,36 +70,39 @@ mkfield() { # $1=字段名 $2=类型 $3=选项(可空) → stdout 输出 field i
   say "字段 ${1} 创建失败"; exit 1
 }
 
-# ---------- 1. 建 Project（PM_RESUME=<编号> 可续跑半成品） ----------
-if [ -n "${PM_RESUME:-}" ]; then
-  PJ_NUM="${PM_RESUME}"
-  PJ_JSON=$(gql "query { viewer { projectV2(number: ${PJ_NUM}) { id url title } } }" --jq '.data.viewer.projectV2')
-  PJ_ID=$(jq -r .id <<<"${PJ_JSON}")
-  PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
-  say "续跑 Project #${PJ_NUM}  ${PJ_URL}"
-else
-  say "创建 Project: ${TITLE}"
-  PJ_EXIST=$(gql "query { viewer { projectsV2(first: 30) { nodes { number title url id } } } }" --jq '.data.viewer.projectsV2.nodes' || true)
-  PJ_JSON=$(jq -c --arg t "${TITLE}" '.[] | select(.title == $t)' <<<"${PJ_EXIST}" 2>/dev/null | head -1)
-  if [ -n "${PJ_JSON:-}" ] && [ "${PJ_JSON}" != "null" ]; then
-    PJ_NUM=$(jq -r .number <<<"${PJ_JSON}"); PJ_ID=$(jq -r .id <<<"${PJ_JSON}"); PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
-    say "  复用已存在的 Project #${PJ_NUM}（同名去重，重跑安全）"
-  else
-  PJ_JSON=""
-  for attempt in 1 2 3 4; do
-    if PJ_JSON=$(gh project create --owner "@me" --title "${TITLE}" --format json 2>/dev/null); then break; fi
-    say "  创建失败(第${attempt}次)，重试..."
-    sleep $((attempt * 15))
-    PJ_JSON=""
-  done
-  [ -n "${PJ_JSON}" ] || { say "Project 创建失败"; exit 1; }
-  PJ_NUM=$(jq -r .number <<<"${PJ_JSON}")
-  PJ_ID=$(jq -r .id <<<"${PJ_JSON}")
-  PJ_URL=$(jq -r .url <<<"${PJ_JSON}")
-  say "  Project #${PJ_NUM}  ${PJ_URL}（中断后可 PM_RESUME=${PJ_NUM} 续跑）"
-  sleep "${PACE}"
+# ---------- 1. 优先复用仓库登记的 Project ----------
+RECORDED=$(python3 "${PM_DIR}/scripts/_onboarding.py" lookup "${REPO}" "${LOCAL_DIR}")
+PJ_NUM="${PM_RESUME:-${RECORDED}}"
+NEW_PROJECT=0
+if [ -n "${PJ_NUM}" ]; then
+  case "${PJ_NUM}" in
+    0*|*[!0-9]*) say "无效 Project 编号：${PJ_NUM}"; exit 1 ;;
+  esac
+  if [ -n "${RECORDED}" ] && [ "${RECORDED}" != "${PJ_NUM}" ]; then
+    say "PM_RESUME 与仓库已登记的 Project #${RECORDED} 不一致"
+    exit 1
   fi
+  PJ_JSON=$(gql "query { viewer { projectV2(number: ${PJ_NUM}) { id url } } }" --jq '.data.viewer.projectV2')
+else
+  PROJECTS=$(gql 'query($endCursor: String) {
+    viewer { projectsV2(first: 100, after: $endCursor) {
+      pageInfo { hasNextPage endCursor }
+      nodes { number title }
+    } }
+  }' --paginate --jq '.data.viewer.projectsV2.nodes[]')
+  MATCHES=$(jq -rs --arg t "${TITLE}" 'map(select(.title == $t)) | map(.number | tostring) | join(", ")' <<<"${PROJECTS}")
+  if [ -n "${MATCHES}" ]; then
+    say "存在同名 Project（${MATCHES}），请核对后用 PM_RESUME=<编号> 明确选择"
+    exit 1
+  fi
+  say "创建 Project: ${TITLE}"
+  PJ_JSON=$(gh project create --owner "@me" --title "${TITLE}" --format json)
+  PJ_NUM=$(jq -er '.number | select(type == "number" and . > 0)' <<<"${PJ_JSON}")
+  NEW_PROJECT=1
 fi
+PJ_ID=$(jq -er '.id | select(type == "string" and length > 0)' <<<"${PJ_JSON}")
+PJ_URL=$(jq -er '.url | select(type == "string" and length > 0)' <<<"${PJ_JSON}")
+say "Project #${PJ_NUM}  ${PJ_URL}（中断后可 PM_RESUME=${PJ_NUM} 续跑）"
 
 # ---------- 2. 建 6 个自定义字段 ----------
 FID_FTYPE=$(mkfield  "类型"     SINGLE_SELECT "需求,缺陷,优化,交付线,文档")
@@ -105,36 +118,46 @@ say "  字段ok 来源=${FID_FSOURCE}"
 FID_FREQ=$(mkfield   "需求人"   TEXT          "")
 say "  字段ok 需求人=${FID_FREQ}"
 
-# ---------- 3. Status 选项中文化 ----------
-say "Status 选项中文化"
-ALL_FIELDS=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { fields(first: 30) { nodes { ... on ProjectV2FieldCommon { id name } } } } } }" \
-             --jq '.data.node.fields.nodes')
-STATUS_ID=$(jq -r '.[] | select(.name == "Status") | .id' <<<"${ALL_FIELDS}")
-TITLE_ID=$(jq -r '.[] | select(.name == "Title") | .id' <<<"${ALL_FIELDS}")
-ASSIGNEE_ID=$(jq -r '.[] | select(.name == "Assignees") | .id' <<<"${ALL_FIELDS}")
-# 坑6：singleSelectOptions 重交会清空全部条目已选值——选项已一致时必须跳过 mutation（读回比对）
-CURRENT_OPTS=$(gql "query { node(id: \"${STATUS_ID}\") { ... on ProjectV2SingleSelectField { options { name } } } }" \
-               --jq '[.data.node.options[].name] | join(",")')
-if [ "${CURRENT_OPTS}" = "待办,开发中,已完成" ]; then
-  say "  Status 选项已是中文，跳过（坑6：重交会清空条目已选值）"
-else
-  gql "mutation { updateProjectV2Field(input: {fieldId: \"${STATUS_ID}\", singleSelectOptions: [
-    {name: \"待办\", color: GRAY, description: \"\"},
-    {name: \"开发中\", color: YELLOW, description: \"\"},
-    {name: \"已完成\", color: GREEN, description: \"\"}
-  ]}) { projectV2Field { ... on ProjectV2SingleSelectField { options { name } } } } }" >/dev/null
-  say "  Status=${STATUS_ID} 选项: 待办/开发中/已完成"
-  sleep "${PACE}"
-fi
+# 现有看板保留 Status 选项和视图列。检查新建看板仍为空再应用默认配置。
+if [ "${NEW_PROJECT}" -eq 1 ] && [ "$(gql "query { viewer { projectV2(number: ${PJ_NUM}) { items(first: 1) { totalCount } } } }" --jq '.data.viewer.projectV2.items.totalCount')" = 0 ]; then
+  # ---------- 3. Status 选项中文化 ----------
+  say "Status 选项中文化"
+  ALL_FIELDS=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { fields(first: 30) { nodes { ... on ProjectV2FieldCommon { id name } } } } } }" \
+               --jq '.data.node.fields.nodes')
+  STATUS_ID=$(jq -r '.[] | select(.name == "Status") | .id' <<<"${ALL_FIELDS}")
+  TITLE_ID=$(jq -r '.[] | select(.name == "Title") | .id' <<<"${ALL_FIELDS}")
+  ASSIGNEE_ID=$(jq -r '.[] | select(.name == "Assignees") | .id' <<<"${ALL_FIELDS}")
+  # 坑6：singleSelectOptions 重交会清空全部条目已选值——选项已一致时必须跳过 mutation（读回比对）
+  CURRENT_OPTS=$(gql "query { node(id: \"${STATUS_ID}\") { ... on ProjectV2SingleSelectField { options { name } } } }" \
+                 --jq '[.data.node.options[].name] | join(",")')
+  if [ "${CURRENT_OPTS}" = "待办,开发中,已完成" ]; then
+    say "  Status 选项已是中文，跳过（坑6：重交会清空条目已选值）"
+  else
+    gql "mutation { updateProjectV2Field(input: {fieldId: \"${STATUS_ID}\", singleSelectOptions: [
+      {name: \"待办\", color: GRAY, description: \"\"},
+      {name: \"开发中\", color: YELLOW, description: \"\"},
+      {name: \"已完成\", color: GREEN, description: \"\"}
+    ]}) { projectV2Field { ... on ProjectV2SingleSelectField { options { name } } } } }" >/dev/null
+    say "  Status=${STATUS_ID} 选项: 待办/开发中/已完成"
+    sleep "${PACE}"
+  fi
 
-# ---------- 4. View 1 配可见列（API 建的字段不会自动进视图） ----------
-say "配置 View 1 可见列"
-VIEW_ID=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { views(first: 5) { nodes { id name } } } } }" \
-          --jq '.data.node.views.nodes[0].id')
-VFIDS="\"${TITLE_ID}\", \"${STATUS_ID}\", \"${FID_FTYPE}\", \"${FID_FHOURS}\", \"${FID_FSTART}\", \"${FID_FEND}\", \"${FID_FSOURCE}\", \"${FID_FREQ}\", \"${ASSIGNEE_ID}\""
-gql "mutation { updateProjectV2View(input: {viewId: \"${VIEW_ID}\", configuration: {visibleFieldIds: [${VFIDS}]}}) { projectV2View { name } } }" >/dev/null
-say "  View 1 已配 9 列"
-sleep "${PACE}"
+  # ---------- 4. View 1 配可见列（API 建的字段不会自动进视图） ----------
+  say "配置 View 1 可见列"
+  VIEW_ID=$(gql "query { node(id: \"${PJ_ID}\") { ... on ProjectV2 { views(first: 5) { nodes { id name } } } } }" \
+            --jq '.data.node.views.nodes[0].id')
+  VFIDS="\"${TITLE_ID}\", \"${STATUS_ID}\", \"${FID_FTYPE}\", \"${FID_FHOURS}\", \"${FID_FSTART}\", \"${FID_FEND}\", \"${FID_FSOURCE}\", \"${FID_FREQ}\", \"${ASSIGNEE_ID}\""
+  gql "mutation { updateProjectV2View(input: {viewId: \"${VIEW_ID}\", configuration: {visibleFieldIds: [${VFIDS}]}}) { projectV2View { name } } }" >/dev/null
+  say "  View 1 已配 9 列"
+  sleep "${PACE}"
+else
+  say "保留已有 Project 的 Status 和视图"
+  HAS_DONE=$(gql "query { viewer { projectV2(number: ${PJ_NUM}) { field(name: \"Status\") { ... on ProjectV2SingleSelectField { options { name } } } } } }" \
+             --jq 'any(.data.viewer.projectV2.field.options[]?; .name == "已完成")')
+  if [ "${HAS_DONE}" != true ]; then
+    say "WARN 看板缺少「已完成」状态，请在记账前添加"
+  fi
+fi
 
 # ---------- 5. 仓库类型 labels ----------
 say "仓库 ${REPO} 建 5 个类型 label"
@@ -146,24 +169,9 @@ done
 # ---------- 6. 注入规范（--local=本地占位符替换；否则 API 注入） ----------
 if [ -n "${LOCAL_DIR}" ]; then
   say "本地模式：替换 ${LOCAL_DIR} 中的 __PM_PROJECT__ 占位符"
-  CHANGED=0
-  for f in "${LOCAL_DIR}/CLAUDE.md" "${LOCAL_DIR}/AGENTS.md" "${LOCAL_DIR}/.github/ISSUE_TEMPLATE/需求.md"; do
-    if [ -f "${f}" ] && grep -q "__PM_PROJECT__" "${f}"; then
-      sed -i '' "s/__PM_PROJECT__/${PJ_NUM}/g" "${f}"
-      CHANGED=$((CHANGED+1))
-      say "  已替换 ${f}"
-    fi
-  done
-  if [ "${CHANGED}" -gt 0 ]; then
-    git -C "${LOCAL_DIR}" add CLAUDE.md AGENTS.md .github/ISSUE_TEMPLATE/需求.md 2>/dev/null
-    git -C "${LOCAL_DIR}" commit -q -m "chore: devledger 项目管理激活（Project #${PJ_NUM}）" 2>/dev/null
-    say "  已本地提交（请自行 push）"
-  else
-    say "  WARN 未找到占位符（非脚手架项目？改用 API 注入模式重跑不带 --local）"
-  fi
+  python3 "${PM_DIR}/scripts/_onboarding.py" activate "${LOCAL_DIR}" "${PJ_NUM}"
 else
 say "注入记账规范到仓库（CLAUDE.md + AGENTS.md + issue 模板）"
-PM_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="${REPO}" PJ_NUM="${PJ_NUM}" PJ_URL="${PJ_URL}" PJ_TITLE="${TITLE}" PM_DIR="${PM_DIR}" python3 - <<'PYEOF'
 import base64, json, os, subprocess, sys, urllib.parse
 
@@ -254,5 +262,5 @@ cat <<EOF
 ✅ 建项完成（规范已自动注入仓库）
    Project: #${PJ_NUM}  ${PJ_URL}
    规范注入：${LOCAL_DIR:+本地占位符已替换并提交（--local 模式）}${LOCAL_DIR:-API 已写入 CLAUDE.md + AGENTS.md 小节与 issue 模板}
-   验收导出: python3 ~/devledger/export-timesheet.py --project ${PJ_NUM}
+   验收导出: python3 ${PM_DIR}/scripts/export-timesheet.py --project ${PJ_NUM}
 EOF
