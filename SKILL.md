@@ -72,7 +72,7 @@ python3 scripts/fill-field.py --project <N> --field <字段> --value <值> [--wh
 
 ## 执行前必读
 
-- **[references/pitfalls.md](references/pitfalls.md)——10 条实测坑**（编码/限流/字段 API 行为/bash 兼容），执行任何 gh API 操作前先读
+- **[references/pitfalls.md](references/pitfalls.md)——实测避坑指南**（编码/限流/字段 API 行为/bash 兼容），执行任何 gh API 操作前先读
 - 深度背景：[references/methodology.md](references/methodology.md)（原则/数据模型/原生取舍/历史迁移模式）
 - 各项目账本真值：本地 `~/devledger-private/data/*.json`（含客户信息不入库；仓库内 example-ledger.json 为格式示例）
 
