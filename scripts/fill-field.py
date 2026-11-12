@@ -17,7 +17,8 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import gql, norm, run
 
-ITEMS_Q = '''query { viewer { projectV2(number: %d) { items(first: 100) {
+ITEMS_Q = '''query($cursor: String) { viewer { projectV2(number: %d) { items(first: 100, after: $cursor) {
+  pageInfo { hasNextPage endCursor }
   nodes {
     content { ... on Issue { number title url } }
     fieldValues(first: 20) { nodes {
@@ -31,21 +32,26 @@ ITEMS_Q = '''query { viewer { projectV2(number: %d) { items(first: 100) {
 
 
 def read_items(project):
-    data = gql(ITEMS_Q % project)
-    if not data:
-        sys.exit("读取 Project 失败（限流？稍后重跑）")
-    items = []
-    for n in data["viewer"]["projectV2"]["items"]["nodes"]:
-        c = n.get("content")
-        if not c:
-            continue
-        vals = {}
-        for f in n["fieldValues"]["nodes"]:
-            fn = (f.get("field") or {}).get("name")
-            if fn and fn not in vals:
-                vals[fn] = f.get("text") if "text" in f else (f.get("name") or f.get("number") or f.get("date"))
-        items.append({"title": c["title"], "url": c["url"], "vals": vals})
-    return items
+    items, cursor = [], None
+    while True:
+        data = gql(ITEMS_Q % project, cursor=cursor)
+        project_data = (data or {}).get("viewer", {}).get("projectV2")
+        if not project_data:
+            sys.exit("读取 Project 失败，请检查项目编号和访问权限")
+        page = project_data["items"]
+        for node in page["nodes"]:
+            content = node.get("content") or {}
+            if not content.get("url"):
+                continue
+            vals = {}
+            for value in node["fieldValues"]["nodes"]:
+                field = (value.get("field") or {}).get("name")
+                if field and field not in vals:
+                    vals[field] = value.get("text", value.get("name", value.get("number", value.get("date"))))
+            items.append({"title": content["title"], "url": content["url"], "vals": vals})
+        if not page["pageInfo"]["hasNextPage"]:
+            return items
+        cursor = page["pageInfo"]["endCursor"]
 
 
 def plan_changes(items, field, value, where=None):
@@ -71,7 +77,10 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    for sweep in range(1, args.sweeps + 1):
+    if args.sweeps < 1:
+        ap.error("--sweeps 必须大于 0")
+
+    for sweep in range(1, args.sweeps + 2):
         todo = plan_changes(read_items(args.project), args.field, args.value, args.where)
         print(f"[sweep{sweep}] 需修改 {len(todo)} 条", flush=True)
         if not todo:
@@ -81,13 +90,14 @@ def main():
             for it in todo[:15]:
                 print(f"  DRIFT {it['title'][:36]} | 现={it['vals'].get(args.field)!r} → {args.value!r}")
             return
+        if sweep > args.sweeps:
+            sys.exit(f"FILL INCOMPLETE：读回仍有 {len(todo)} 条差异")
         for it in todo:
             rc, _, err = run(["gh", "project", "item-edit", str(args.project), "--owner", "@me",
                               "--url", it["url"], "--field", args.field, "--value", args.value], pace=1.5)
             if rc != 0:
                 print(f"  FAIL {it['title'][:30]}: {err[:60]}", flush=True)
         time.sleep(10)
-    print("FILL DONE（达最大轮数，如仍有差异请重跑——幂等只补差异）")
 
 
 if __name__ == "__main__":

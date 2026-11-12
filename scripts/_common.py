@@ -24,9 +24,12 @@ def run(args, retries=5, timeout=180, pace=0):
     return 1, "", last
 
 
-def gql(query, retries=5):
+def gql(query, retries=5, *, cursor=None):
     """GraphQL 查询 → 解析后的 data；失败返回 None（内部自动退避）。"""
-    rc, out, _ = run(["gh", "api", "graphql", "-f", "query=" + query], retries=retries)
+    args = ["gh", "api", "graphql", "-f", "query=" + query]
+    if cursor is not None:
+        args += ["-f", f"cursor={cursor}"]
+    rc, out, _ = run(args, retries=retries)
     if rc != 0:
         return None
     try:

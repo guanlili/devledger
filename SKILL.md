@@ -65,7 +65,8 @@ for fv in "类型:需求" "来源:甲方" "需求人:张三" "工时(h):8" "开�
 ## 场景 C：查看与导出（休眠扩展）
 
 ```bash
-python3 scripts/reconcile.py --project <N> --repo <owner/repo> --dry-run   # C1 进度+体检
+python3 scripts/reconcile.py --project <N> --repo <owner/repo> --data <账本.json> --dry-run  # C1 对账体检
+# 启用交付轮次的仓库可用 --from-labels 替代 --data，仅核对轮次字段
 python3 scripts/export-timesheet.py --project <N> [--round 轮次] [--customer] [-o xlsx]  # C2 验收表
 python3 scripts/fill-field.py --project <N> --field <字段> --value <值> [--where 来源=甲方] [--dry-run]  # C3 批量填字段（读回验证内置，幂等重跑）
 ```
