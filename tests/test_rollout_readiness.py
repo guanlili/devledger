@@ -13,10 +13,10 @@ EXPORT = (ROOT / "scripts" / "export-timesheet.py").read_text(encoding="utf-8")
 
 class TestRolloutReadiness(unittest.TestCase):
     def test_skill_doc_six_field_era(self):
-        """SKILL.md 不得残留 5 字段/8 列/9 坑的旧口径（v1.2.1 起为 6 字段 9 列 10 坑）"""
+        """SKILL.md 应说明 6 字段、9 列并链接避坑指南"""
         self.assertNotIn("5 字段", SKILL)
         self.assertNotIn("View 8 列", SKILL)
-        self.assertIn("10 条实测坑", SKILL)
+        self.assertIn("](references/pitfalls.md)", SKILL)
 
     def test_templates_use_standard_install_path(self):
         """注入模板必须引用标准安装路径 ~/.agents/skills/devledger（他人机器无 ~/devledger）"""

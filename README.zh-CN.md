@@ -70,7 +70,7 @@ bash ~/.agents/skills/devledger/scripts/new-project.sh <owner/repo>
 | `scripts/fill-field.py` | 批量字段填充（读回验证内置，幂等重跑） |
 | `scripts/reconcile.py` | 字段对账（读回→diff→补写循环；`--from-labels` 重建） |
 | `scripts/install.sh` | 幂等安装自检 |
-| `references/pitfalls.md` | 10 条实测坑（执行 API 前必读） |
+| `references/pitfalls.md` | 实测避坑指南（执行 API 前必读） |
 | `references/methodology.md` | 方法论：原则/数据模型/原生取舍/历史迁移 |
 | `references/data/*.json` | 各项目账本真值（reconcile 用） |
 
