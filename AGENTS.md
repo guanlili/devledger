@@ -17,7 +17,7 @@
 2. 记账以 **issue 为唯一真相源**，Project 字段只是视图
 3. 完成可交付单元的会话**不记账不结束**（硬性纪律）
 4. 读 Project 数据一律 `gh api graphql`（`gh project item-list` 会损坏中文字段名）
-5. 逐条命令见 SKILL.md「坑速查」，共 11 条实测坑
+5. 逐条命令见 SKILL.md 链接的实测避坑指南
 
 ## 他人接入（一句话协议）
 

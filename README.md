@@ -105,7 +105,7 @@ Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Wor
 ## Documentation
 
 - [SKILL.md](SKILL.md) — agent entry point (decision tree + per-scenario commands)
-- [references/pitfalls.md](references/pitfalls.md) — 11 hard-won gh/GitHub API pitfalls
+- [references/pitfalls.md](references/pitfalls.md) — gh/GitHub API pitfalls from real usage
 - [references/methodology.md](references/methodology.md) — principles, data model, migration patterns
 - [README.zh-CN.md](README.zh-CN.md) — full documentation in Chinese
 

@@ -16,4 +16,4 @@
 8. **bash 3.2（macOS）**：无关联数组；`$VAR` 一律写 `${VAR}` 且不紧跟中文字符
 9. **代理**：终端访问 github.com 网页域（OAuth/push）超时 → 配置 `HTTPS_PROXY` 指向本地代理；api.github.com 通常可直连
 10. **GraphQL 手写单行查询会丢右括号**：报错 `Expected NAME, actual: (none)` 且列号=查询末尾 = 少一个 `}`（不是服务端故障）→ 一律多行书写并数平括号。（实测更正：`--value` 通吃所有字段类型含 TEXT，`--text`/`--number`/`--date` 是别名——以读回验证为准，勿轻信文档包括本文件）
-11. **item-edit 寻址**：新版 gh 禁止 `--id` 与 `--field`（按名）混用，报 `` `--field` cannot be used with `--id` `` → 按名编辑须 `gh project item-edit <编号> --owner @me --url <issue链接> --field 名 --value 值`；`--id` 只配 `--field-id` + `--project-id`（机器模式）。坑 2 的 `--value` 通吃结论在 --url 模式下继续成立（2026-11-12 jilin-flex-platform 8 条回填实测，gh 2.7x）
+11. **item-edit 寻址**：新版 gh 禁止 `--id` 与 `--field`（按名）混用，报 `` `--field` cannot be used with `--id` `` → 按名编辑须 `gh project item-edit <编号> --owner @me --url <issue链接> --field 名 --value 值`；`--id` 只配 `--field-id` + `--project-id`（机器模式）。坑 2 的 `--value` 通吃结论在 --url 模式下继续成立（2026-11-12 jilin-flex-platform 8 条回填实测，gh 2.103.3）
