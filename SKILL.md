@@ -50,15 +50,14 @@ scripts/new-project.sh <owner/repo> [--local <项目本地路径>]
 > **没记账的工作等于没做。完成可交付单元的会话，结束前必须完成三步。**
 
 ```bash
-N=<Project编号>; URL=<issue url>
-# ① 建 issue：正文按模板 assets/issue-template.md（来源[含甲方原话]/描述[为什么现在做·否决方案·做了什么]/交付物/验证/工时——决策上下文记录时写全，事后不可补），label=类型 → 关闭 → 入板
-gh issue create -R <owner/repo> --title "<可交付单元>" --body-file <四段正文.md> --label <类型> --assignee @me
-gh issue close <issue号> -R <owner/repo> && gh project item-add ${N} --owner "@me" --url "${URL}"
-# ② 设 6 字段
-for fv in "类型:需求" "来源:甲方" "需求人:张三" "工时(h):8" "开始:YYYY-MM-DD" "结束:YYYY-MM-DD" "Status:已完成"; do
-  gh project item-edit ${N} --owner "@me" --url "${URL}" --field "${fv%%:*}" --value "${fv#*:}"; done
+# ① 按模板写正文，复用已有 issue 或创建一次，保存 URL。
+URL=$(gh issue create -R <owner/repo> --title "<可交付单元>" --body-file <正文.md> --label 需求 --assignee @me)
+# ② 入板并补齐字段。③ 读回确认后关闭 issue。
+python3 scripts/bookkeep.py --project <Project编号> --issue "${URL}" \
+  --type 需求 --source 甲方 --requester 张三 --hours 8 --start YYYY-MM-DD --end YYYY-MM-DD
 ```
 
+- 用同一个 issue URL 和相同参数续跑。命令只补差异，已关闭的 issue 也可补齐字段。内部需求可省略 `--requester`。
 - 工时口径：**人类等价工作量、从宽宁多勿漏**，依据写进 issue；commit 末尾带 `(#N)` 自动关联
 - **issue 是唯一真相源**：字段与任何汇总均为派生视图
 

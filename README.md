@@ -94,13 +94,13 @@ graph TB
 ```mermaid
 flowchart LR
     s["AI dev session<br/>ships a deliverable"] -->|"① create issue"| i["4-section body: source (client quote) / why<br/>deliverables / verification · hours, label = type"]
-    i -->|"② close + add to board"| b["Project board"]
-    b -->|"③ set 6 fields"| f["type · source · requester<br/>hours · start · end"]
+    i -->|"② add to board"| b["Project board"]
+    b -->|"③ verify fields and close issue"| f["type · source · requester<br/>hours · start · end"]
     f --> v["board / summaries = derived views"]
     v -. "one command at acceptance" .-> x["client-ready xlsx"]
 ```
 
-Requires `gh` CLI (project scopes), bash 3.2+, python3+openpyxl for exports. Works with ZCode, Claude Code, Cursor — any agent that reads SKILL.md/AGENTS.md.
+Requires `gh` CLI (project scopes), bash 3.2+, and Python 3. Exports also require openpyxl. Works with ZCode, Claude Code, Cursor — any agent that reads SKILL.md/AGENTS.md.
 
 ## Documentation
 

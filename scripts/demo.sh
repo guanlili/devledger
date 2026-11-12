@@ -71,11 +71,14 @@ MD
 for pair in "首页性能优化:优化:甲方:8:${DEMO1}" "预测超时修复:缺陷:内部:5:${DEMO2}"; do
   IFS=':' read -r T TY SRC H BODY <<<"${pair}"
   U=$(gh issue create -R "${REPO}" --title "${T}" --body-file "${BODY}" --label "${TY}" --assignee @me)
-  NUM=${U##*/}; gh issue close "${NUM}" -R "${REPO}" >/dev/null
-  gh project item-add "${N}" --owner "@me" --url "${U}" >/dev/null
-  for fv in "类型:${TY}" "来源:${SRC}" "工时(h):${H}" "开始:2026-01-10" "结束:2026-01-10" "Status:已完成"; do
-    gh project item-edit "${N}" --owner "@me" --url "${U}" --field "${fv%%:*}" --value "${fv#*:}" >/dev/null
-  done
+  NUM=${U##*/}
+  REQUESTER=()
+  if [ "${SRC}" = "甲方" ]; then
+    REQUESTER=(--requester "示例联系人")
+  fi
+  python3 "${DL}/scripts/bookkeep.py" --project "${N}" --issue "${U}" \
+    --type "${TY}" --source "${SRC}" --hours "${H}" --start 2026-01-10 --end 2026-01-10 \
+    ${REQUESTER[@]+"${REQUESTER[@]}"} >/dev/null
   say "  #${NUM} ${T}（${TY}/${SRC}/${H}h）已入账"
 done
 rm -f "${DEMO1}" "${DEMO2}"

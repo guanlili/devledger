@@ -20,7 +20,8 @@ def run(args, retries=5, timeout=180, pace=0):
                 time.sleep(pace)
             return r.returncode, r.stdout.strip(), r.stderr.strip()
         last = r.stderr.strip()
-        time.sleep(300 if "rate limit" in last.lower() else 15 * (a + 1))
+        if a + 1 < retries:
+            time.sleep(300 if "rate limit" in last.lower() else 15 * (a + 1))
     return 1, "", last
 
 

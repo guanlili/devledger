@@ -7,7 +7,7 @@
 记账三步：
 
 1. 当轮 commits 聚类成可交付单元（甲方可感知的主题，一次 commit 不等于一条）；commit 末尾尽量带 issue 号 `(#N)` 自动关联
-2. 按模板建 issue（`.github/ISSUE_TEMPLATE/需求.md`：来源[含原话]/描述[为什么·否决方案·做了什么]/交付物/验证/工时，label=类型；决策上下文记录时写全，事后不可补），关闭之，`gh project item-add __PM_PROJECT__ --owner "@me" --url <issue url>`
-3. 设 6 字段：类型（需求/缺陷/优化/交付线/文档，与 label 同名）、来源（甲方/内部）、需求人（甲方联系人；内部可空）、工时(h)（AI 评估：人类等价工作量，从宽、宁多勿漏，依据写进 issue）、开始、结束；Status=已完成
+2. 按模板建 issue（`.github/ISSUE_TEMPLATE/需求.md`：来源[含原话]/描述[为什么·否决方案·做了什么]/交付物/验证/工时，label=类型；决策上下文记录时写全，事后不可补）。保存 issue URL，已有 issue 直接复用。
+3. 用 `python3 ~/.agents/skills/devledger/scripts/bookkeep.py --project __PM_PROJECT__ --issue <issue URL> --type <类型> --source <来源> --hours <人类等价工时> --start <YYYY-MM-DD> --end <YYYY-MM-DD>` 入板、补字段并读回，确认后关闭 issue。甲方需求加 `--requester <需求人>`。中断后使用相同 URL 和参数续跑。
 
 **issue 是唯一工作真相源**：字段与任何汇总均为派生视图。已知坑与扩展工具见 ~/.agents/skills/devledger/SKILL.md。
