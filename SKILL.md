@@ -40,10 +40,10 @@ GitHub Projects（数据层：issue + 6 字段；一仓库一 Project，名=仓�
 ```bash
 scripts/new-project.sh <owner/repo> [--local <项目本地路径>]
 # 脚手架项目（本地已克隆）加 --local：替换占位符并本地提交；存量仓库走 API 注入
-# 中断续跑：PM_RESUME=<Project编号> 前缀重跑
+# 中断续跑或确认接入已有同名 Project：PM_RESUME=<Project编号> 前缀重跑
 ```
 
-自动完成：Project（名=仓库名，Status 中文化+6字段+View 9列）+ 5 类型 label + 规范注入（CLAUDE.md 小节、AGENTS.md 小节、issue 模板）。验证：`gh project view <编号>` 有 6 个自定义字段。
+新建空 Project 时设置默认 Status 和视图。重复接入优先用仓库规范登记的编号，并保留已有 Status 和视图。没有登记时，同名 Project 需用 `PM_RESUME` 明确选择。脚本补齐 6 个自定义字段和类型标签，并注入仓库规范。
 
 ## 场景 B：日常记账（AI 会话收尾，硬性纪律）
 

@@ -17,9 +17,6 @@ def make_row(**kw):
 
 
 class TestDynamicColumns(unittest.TestCase):
-    def setUp(self):
-        et.COLUMNS = list(ORIGINAL_COLUMNS)  # build_sheet 会原地裁剪，逐测重置
-
     def test_rounds_dropped_when_all_empty(self):
         wb = et.build_sheet([make_row(需求名称="a", **{"工时(h)": 4})], "T", "s")
         headers = [c.value for c in wb["验收汇总"][5]]
@@ -39,6 +36,23 @@ class TestDynamicColumns(unittest.TestCase):
         hours_idx = [c.value for c in ws[5]].index("工时(h)")
         self.assertEqual(last[0], "合计")
         self.assertEqual(last[hours_idx], 10)
+
+
+class TestExportValidation(unittest.TestCase):
+    def test_blank_hours_are_reported_and_zero_is_valid(self):
+        rows = [make_row(需求名称="空工时"), make_row(需求名称="零工时", **{"工时(h)": 0})]
+        wb = et.build_sheet(rows, "T", "s")
+        self.assertEqual(wb["缺失工时"]["A2"].value, "空工时")
+        self.assertEqual(wb["缺失工时"].max_row, 2)
+        ws = wb["验收汇总"]
+        self.assertEqual(ws.cell(row=ws.max_row, column=1).value, "已填工时合计")
+
+    def test_formula_like_text_stays_text(self):
+        wb = et.build_sheet([make_row(需求名称="=1+1", 类型="=2+2")], "=3+3", "")
+        self.assertEqual(wb["验收汇总"]["A6"].data_type, "s")
+        self.assertEqual(wb["验收汇总"]["A6"].value, "=1+1")
+        self.assertEqual(wb["验收汇总"]["A1"].data_type, "s")
+        self.assertEqual(wb["工时概览"]["B2"].data_type, "s")
 
 
 if __name__ == "__main__":

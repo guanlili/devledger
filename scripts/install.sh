@@ -31,6 +31,9 @@ say "devledger ${VER:-unknown}"
 # 4) 前置自检
 command -v gh >/dev/null 2>&1 || { say "缺 gh CLI：brew install gh（https://cli.github.com），装好后重跑本命令"; exit 1; }
 say "gh CLI：$(gh --version | head -1)"
+for dep in jq python3; do
+  command -v "${dep}" >/dev/null 2>&1 || { say "缺少接入依赖：${dep}，安装后重跑"; exit 1; }
+done
 gh auth status >/dev/null 2>&1 || { say "未登录 GitHub：gh auth login（浏览器确认一次），再重跑"; exit 1; }
 SCOPES=$(gh auth status 2>&1 | grep -o "scopes:.*" || true)
 case "${SCOPES}" in

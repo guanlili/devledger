@@ -65,7 +65,7 @@ bash ~/.agents/skills/devledger/scripts/new-project.sh <owner/repo>
 |---|---|
 | `SKILL.md` | **Agent 执行入口**：决策树 + 场景命令 |
 | `AGENTS.md` | 跨 Agent（Claude Code/Cursor 等）接口与红线 |
-| `scripts/new-project.sh` | 一键建项：Project（Status 中文化+6字段+View 9列）+ labels + 规范注入 |
+| `scripts/new-project.sh` | 建项或接入已有 Project，补齐字段、标签和仓库规范 |
 | `scripts/export-timesheet.py` | 验收 xlsx（动态列，甲方版 `--customer`） |
 | `scripts/fill-field.py` | 批量字段填充（读回验证内置，幂等重跑） |
 | `scripts/reconcile.py` | 字段对账（读回→diff→补写循环；`--from-labels` 重建） |

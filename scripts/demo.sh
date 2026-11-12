@@ -19,8 +19,8 @@ grep -E 'Project #|建项完成' "${ONLOG}" | head -2 || true
 rm -f "${ONLOG}"
 
 say "[3/5] 记 2 条账（模拟 AI 会话收尾的产出）"
-N=$(gh api graphql -f query='{viewer{projectsV2(first:10){nodes{number title}}}}' \
-     --jq ".data.viewer.projectsV2.nodes[] | select(.title == \"${NAME}\") | .number" | head -1)
+N=$(python3 "${DL}/scripts/_onboarding.py" lookup "${REPO}" "")
+[ -n "${N}" ] || { say "未找到接入登记的 Project 编号"; exit 1; }
 DEMO1=$(mktemp /tmp/dl-demo1.XXXXXX.md); DEMO2=$(mktemp /tmp/dl-demo2.XXXXXX.md)
 cat > "${DEMO1}" <<'MD'
 ## 来源

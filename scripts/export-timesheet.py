@@ -12,9 +12,8 @@
 """
 import argparse
 import json
-import subprocess
+import math
 import sys
-import time
 from datetime import date
 
 QUERY = """
@@ -49,7 +48,7 @@ COLUMNS = ["需求名称", "类型", "来源", "需求人", "状态", "工时(h)
 import os as _os
 import sys as _sys
 _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-from _common import gql, run  # noqa: E402
+from _common import run  # noqa: E402
 
 def gh_graphql(query, cursor=None, retries=3):
     """GraphQL 分页读 Project（限流退避见 _common）。"""
@@ -71,12 +70,14 @@ def fetch_items(project_number):
         page = project["items"]
         for node in page["nodes"]:
             content = node.get("content") or {}
+            if not content.get("url"):
+                continue
             row = {name: "" for name in COLUMNS}
             row["需求名称"] = content.get("title", "")
             row["链接"] = content.get("url", "")
             row["状态"] = "已完成" if content.get("state") == "CLOSED" else "进行中"
             for value in (node.get("fieldValues") or {}).get("nodes", []):
-                field = value.get("field", {}).get("name")
+                field = (value.get("field") or {}).get("name")
                 if field == "Status":
                     row["状态"] = value.get("name", row["状态"])
                 elif field in row:
@@ -87,10 +88,21 @@ def fetch_items(project_number):
         cursor = page["pageInfo"]["endCursor"]
 
 
+def has_hours(row):
+    value = row.get("工时(h)")
+    return type(value) in (int, float) and math.isfinite(value)
+
+
+def append_values(sheet, values):
+    sheet.append(values)
+    for cell in sheet[sheet.max_row]:
+        if isinstance(cell.value, str):
+            cell.data_type = "s"
+
+
 def build_sheet(rows, project_title, subtitle):
-    global COLUMNS
-    if rows and all(not r.get("交付轮次") for r in rows):
-        COLUMNS = [c for c in COLUMNS if c != "交付轮次"]
+    columns = [c for c in COLUMNS if c != "交付轮次" or not rows or any(r.get(c) for r in rows)]
+    missing = [row for row in rows if not has_hours(row)]
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -102,31 +114,39 @@ def build_sheet(rows, project_title, subtitle):
     header_font = Font(bold=True, color="FFFFFF")
     # 交付级表头块：项目名 / 筛选说明 / 导出日期
     ws["A1"] = project_title
+    ws["A1"].data_type = "s"
     ws["A1"].font = Font(bold=True, size=14)
     ws["A2"] = subtitle
+    ws["A2"].data_type = "s"
     ws["A3"] = f"导出日期：{date.today():%Y-%m-%d}　制表：GitHub Project 自动生成"
     ws["A3"].font = Font(color="808080")
-    ws.append([])
-    ws.append(COLUMNS)
+    if missing:
+        ws["A4"] = f"{len(missing)} 条未填工时，详见「缺失工时」。合计仅包含已填工时。"
+    ws.cell(row=5, column=1)
+    for index, column in enumerate(columns, 1):
+        ws.cell(row=5, column=index, value=column)
     header_row = ws.max_row
     for cell in ws[header_row]:
         cell.fill, cell.font = header_fill, header_font
         cell.alignment = Alignment(horizontal="center")
     rows.sort(key=lambda r: (str(r["开始"]), str(r["需求名称"])))
     for row in rows:
-        ws.append([row[c] for c in COLUMNS])
-    total = sum(r["工时(h)"] or 0 for r in rows if isinstance(r["工时(h)"], (int, float)))
-    hours_col = COLUMNS.index("工时(h)") + 1
-    link_col = COLUMNS.index("链接") + 1
-    ws.append(["合计" if i == 1 else (total if i == hours_col else "") for i in range(1, len(COLUMNS) + 1)])
+        append_values(ws, [row[c] for c in columns])
+    total = sum(r["工时(h)"] or 0 for r in rows if has_hours(r))
+    hours_col = columns.index("工时(h)") + 1
+    link_col = columns.index("链接") + 1
+    total_label = "已填工时合计" if missing else "合计"
+    ws.append([total_label if i == 1 else (total if i == hours_col else "") for i in range(1, len(columns) + 1)])
     ws.cell(row=ws.max_row, column=1).font = Font(bold=True)
     ws.cell(row=ws.max_row, column=hours_col).font = Font(bold=True)
     widths = {"需求名称": 38, "类型": 8, "来源": 7, "需求人": 10, "状态": 9, "工时(h)": 9,
               "开始": 12, "结束": 12, "交付轮次": 18, "链接": 44}
-    for i, name in enumerate(COLUMNS, 1):
+    for i, name in enumerate(columns, 1):
         ws.column_dimensions[get_column_letter(i)].width = widths.get(name, 12)
-    for r in range(header_row + 1, ws.max_row + 1):
-        ws.cell(row=r, column=link_col).hyperlink = ws.cell(row=r, column=link_col).value
+    for r in range(header_row + 1, ws.max_row):
+        cell = ws.cell(row=r, column=link_col)
+        if cell.value:
+            cell.hyperlink = cell.value
     ws.freeze_panes = f"A{header_row + 1}"
 
     overview = wb.create_sheet("工时概览")
@@ -138,11 +158,20 @@ def build_sheet(rows, project_title, subtitle):
         for r in rows:
             key = str(r[dim] or "未填")
             hours, count = agg.get(key, (0, 0))
-            agg[key] = (hours + (r["工时(h)"] if isinstance(r["工时(h)"], (int, float)) else 0), count + 1)
+            agg[key] = (hours + (r["工时(h)"] if has_hours(r) else 0), count + 1)
         for key, (hours, count) in sorted(agg.items()):
-            overview.append([dim, key, hours, count])
+            append_values(overview, [dim, key, hours, count])
     for i, w in enumerate([10, 24, 10, 8], 1):
         overview.column_dimensions[get_column_letter(i)].width = w
+    if missing:
+        details = wb.create_sheet("缺失工时")
+        details.append(["需求名称", "链接"])
+        for row in missing:
+            append_values(details, [row["需求名称"], row["链接"]])
+            if row["链接"]:
+                details.cell(row=details.max_row, column=2).hyperlink = row["链接"]
+        details.column_dimensions["A"].width = 38
+        details.column_dimensions["B"].width = 52
     return wb
 
 
@@ -166,7 +195,10 @@ def main():
     subtitle_parts.append("来源：甲方" if args.customer else "来源：全部")
     wb = build_sheet(items, project_title, "　|　".join(subtitle_parts))
     wb.save(args.output)
-    hours = sum(i["工时(h)"] for i in items if isinstance(i["工时(h)"], (int, float)))
+    hours = sum(i["工时(h)"] for i in items if has_hours(i))
+    missing = [i for i in items if not has_hours(i)]
+    if missing:
+        print(f"工时未填：{len(missing)} 条，合计仅包含已填工时。详见工作簿「缺失工时」。", file=sys.stderr)
     customer_count = sum(1 for i in items if i["来源"] == "甲方")
     print(f"已导出 {args.output}：{len(items)} 条，合计 {hours}h，其中甲方来源 {customer_count} 条")
 

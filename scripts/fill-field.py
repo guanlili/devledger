@@ -94,9 +94,9 @@ def main():
             sys.exit(f"FILL INCOMPLETE：读回仍有 {len(todo)} 条差异")
         for it in todo:
             rc, _, err = run(["gh", "project", "item-edit", str(args.project), "--owner", "@me",
-                              "--url", it["url"], "--field", args.field, "--value", args.value], pace=1.5)
+                              "--url", it["url"], "--field", args.field, "--value", args.value], retries=1, pace=1.5)
             if rc != 0:
-                print(f"  FAIL {it['title'][:30]}: {err[:60]}", flush=True)
+                sys.exit(f"写入未确认 {it['title']}: {err}。请稍后重跑，脚本将读回再补差异。")
         time.sleep(10)
 
 
